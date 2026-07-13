@@ -73,6 +73,37 @@ File.WriteAllBytes("out.wav", result.ToWav()); // 24 kHz mono WAV
 `Synthesize` is synchronous and CPU/GPU-bound — call it from a background thread
 (`await Task.Run(() => model.Synthesize(...))`) in UI apps.
 
+## What you get back
+
+`Synthesize` returns an `F5TtsResult`:
+
+| member | type | description |
+|---|---|---|
+| `Samples` | `short[]` | raw 16-bit PCM, **mono** |
+| `SampleRate` | `int` | `24000` |
+| `DurationSeconds` | `double` | length of the generated audio |
+| `ToWav()` | `byte[]` | the samples encoded as an in-memory WAV file |
+
+**Save it** to a file:
+
+```csharp
+File.WriteAllBytes("out.wav", result.ToWav());
+```
+
+**Play it** — the library has no audio output of its own (to stay dependency-light), so use any
+player. With [NAudio](https://github.com/naudio/NAudio):
+
+```csharp
+using var ms = new MemoryStream(result.ToWav());
+using var reader = new WaveFileReader(ms);
+using var output = new WaveOutEvent();
+output.Init(reader);
+output.Play();
+while (output.PlaybackState == PlaybackState.Playing) Thread.Sleep(100);
+```
+
+Or feed `result.Samples` straight into your own audio pipeline — it's plain 24 kHz mono PCM.
+
 ## Notes
 
 - **Reference audio** must be 24 kHz mono. `WavAudio.ReadPcm16` loads 16-bit PCM WAV (and

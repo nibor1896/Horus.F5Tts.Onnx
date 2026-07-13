@@ -16,6 +16,8 @@ All notable changes to this project are documented here. The format is based on
   ready-to-use example), and corrected the footer license note to reference the German model
   specifically rather than "all models".
 - README links the DEV.to write-up ("Read the story").
+- README documents the `F5TtsResult` (what `Synthesize` returns) with save-to-file and playback
+  examples.
 
 ## [0.1.0] - 2026-07-13
 
