@@ -12,6 +12,9 @@ All notable changes to this project are documented here. The format is based on
 
 ### Changed
 - README now leads with the "first pure-.NET F5-TTS runner" framing.
+- Landing page: clarified that the library is language-agnostic (a German model is just the
+  ready-to-use example), and corrected the footer license note to reference the German model
+  specifically rather than "all models".
 
 ## [0.1.0] - 2026-07-13
 
