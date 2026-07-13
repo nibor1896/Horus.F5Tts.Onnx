@@ -90,3 +90,8 @@ File.WriteAllBytes("out.wav", result.ToWav()); // 24 kHz mono WAV
 - The **model weights** you run carry their own license — e.g. the German checkpoint
   ([hvoss-techfak/F5-TTS-German](https://huggingface.co/hvoss-techfak/F5-TTS-German)) is
   **CC-BY-NC-4.0** (non-commercial).
+
+## Support
+
+This is free and MIT-licensed — no strings attached. If it saved you some time, you can
+[buy me a coffee ☕](https://paypal.me/RobinLudwig240). Thanks!
