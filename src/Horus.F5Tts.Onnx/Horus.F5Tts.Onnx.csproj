@@ -15,8 +15,19 @@
     <PackageTags>tts;text-to-speech;f5-tts;onnx;onnxruntime;speech;voice-cloning;ai</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/nibor1896/Horus.F5Tts.Onnx</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/nibor1896/Horus.F5Tts.Onnx</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>See CHANGELOG.md.</PackageReleaseNotes>
+
+    <!-- Package quality: deterministic build, embedded source link, and a snupkg symbol package
+         so consumers can step into the library while debugging. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +39,8 @@
          CPU, .DirectML for any DX12 GPU, .Gpu for CUDA). This keeps the library from forcing an
          execution provider on its users. -->
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
+    <!-- Build-time only: emits Source Link metadata so debuggers can fetch the exact source. -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>
