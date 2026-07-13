@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-13
+
+Re-release of 0.1.0. The 0.1.0 package never became available on nuget.org — after an initial
+manual push its validation stalled, which permanently reserves the version number (every later
+push then returns "409 already exists" and publishes nothing). 0.1.1 is a fresh version so the
+release workflow can publish cleanly. **No API or behavior changes since 0.1.0.**
+
 ### Added
 - Project landing page (`docs/index.html`, served via GitHub Pages) — minimalist, with a
   light/dark theme toggle.
@@ -53,5 +60,6 @@ Initial release.
   driver actually performs `NFE - 1` steps, starting `time_step` at 0 and feeding back the value the
   transformer returns each iteration. Fixed and verified end-to-end (Whisper large-v3: de, 1.00).
 
-[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/releases/tag/v0.1.0

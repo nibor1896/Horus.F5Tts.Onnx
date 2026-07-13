@@ -9,7 +9,7 @@
 
     <!-- NuGet package metadata -->
     <PackageId>Horus.F5Tts.Onnx</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <Authors>nibor1896</Authors>
     <Description>Run F5-TTS text-to-speech in pure ONNX Runtime from .NET — no Python required. Feed a reference voice clip and text, get 24 kHz audio back.</Description>
     <PackageTags>tts;text-to-speech;f5-tts;onnx;onnxruntime;speech;voice-cloning;ai</PackageTags>
