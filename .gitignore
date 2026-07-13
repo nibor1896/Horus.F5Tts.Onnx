@@ -18,3 +18,6 @@ obj/
 # directory (case-insensitive on Windows) and ignore the whole source tree.
 models/
 **/models/*.onnx
+
+# Local test artifacts
+*.wav

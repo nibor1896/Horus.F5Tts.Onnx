@@ -155,10 +155,13 @@ public sealed class F5TtsModel : IDisposable
             refSignalLen = Copy<long>(pre, "ref_signal_len");
         }
 
+        // The transformer performs NFE-1 denoising steps. time_step starts at 0 and the model
+        // returns the next time_step to feed back on the following iteration — this matches
+        // DakeQQ's F5-TTS-ONNX inference driver (range(0, NFE-1), feeding the returned time_step).
         var x = noise;
-        for (var step = 0; step < nfeSteps; step++)
+        var timeStep = new DenseTensor<int>(new int[] { 0 }, new int[] { 1 });
+        for (var i = 0; i < nfeSteps - 1; i++)
         {
-            var timeStep = new DenseTensor<int>(new int[] { step }, new int[] { 1 });
             using var res = _transformer.Run([
                 NamedOnnxValue.CreateFromTensor("noise", x),
                 NamedOnnxValue.CreateFromTensor("rope_cos_q", ropeCosQ),
@@ -170,6 +173,7 @@ public sealed class F5TtsModel : IDisposable
                 NamedOnnxValue.CreateFromTensor("time_step.1", timeStep),
             ]);
             x = Copy<float>(res, "denoised");
+            timeStep = Copy<int>(res, "time_step");
         }
 
         using var dec = _decode.Run([

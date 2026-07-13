@@ -34,6 +34,10 @@ Initial release.
 - **`DenseTensor<T>` overload ambiguity.** Constructing tensors with collection-expression
   arguments (`new DenseTensor<long>([x], [1])`) bound to the wrong constructor overload
   (CS0029 / CS9174). Switched to explicit arrays. Caught by CI before any release.
+- **NFE loop ran one step too many.** The denoising loop iterated `NFE` times feeding a fresh step
+  index, overrunning the transformer's time-step table (`Gather` out-of-bounds at index 31). The
+  driver actually performs `NFE - 1` steps, starting `time_step` at 0 and feeding back the value the
+  transformer returns each iteration. Fixed and verified end-to-end (Whisper large-v3: de, 1.00).
 
 [Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/releases/tag/v0.1.0
