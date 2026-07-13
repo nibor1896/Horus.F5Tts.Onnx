@@ -18,6 +18,7 @@ All notable changes to this project are documented here. The format is based on
 - README links the DEV.to write-up ("Read the story").
 - README documents the `F5TtsResult` (what `Synthesize` returns) with save-to-file and playback
   examples.
+- Landing page footer links the README/docs (under "Support").
 
 ## [0.1.0] - 2026-07-13
 
