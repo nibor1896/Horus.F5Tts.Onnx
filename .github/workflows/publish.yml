@@ -1,0 +1,30 @@
+name: Publish to NuGet
+
+# Publishes the package to nuget.org when you create a GitHub Release.
+# Requires a repository secret named NUGET_API_KEY (Settings → Secrets and variables → Actions).
+# The release tag should match the <Version> in the .csproj (e.g. tag "v0.1.0" for version 0.1.0).
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Pack
+        run: dotnet pack src/Horus.F5Tts.Onnx/Horus.F5Tts.Onnx.csproj --configuration Release --output ./artifacts
+
+      - name: Push to NuGet
+        run: >
+          dotnet nuget push ./artifacts/*.nupkg
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

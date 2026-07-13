@@ -1,0 +1,20 @@
+# .NET build output
+bin/
+obj/
+*.user
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# IDE
+.vs/
+.idea/
+*.suo
+
+# Local model files (large; downloaded separately, see README). Scoped to a models/
+# folder on purpose — a bare "*.onnx" would also match the "Horus.F5Tts.Onnx" project
+# directory (case-insensitive on Windows) and ignore the whole source tree.
+models/
+**/models/*.onnx

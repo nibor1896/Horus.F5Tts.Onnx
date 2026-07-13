@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- NuGet package metadata -->
+    <PackageId>Horus.F5Tts.Onnx</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>nibor1896</Authors>
+    <Description>Run F5-TTS text-to-speech in pure ONNX Runtime from .NET — no Python required. Feed a reference voice clip and text, get 24 kHz audio back.</Description>
+    <PackageTags>tts;text-to-speech;f5-tts;onnx;onnxruntime;speech;voice-cloning;ai</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/nibor1896/Horus.F5Tts.Onnx</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/nibor1896/Horus.F5Tts.Onnx</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Managed API only: the consuming app picks the native runtime (Microsoft.ML.OnnxRuntime for
+         CPU, .DirectML for any DX12 GPU, .Gpu for CUDA). This keeps the library from forcing an
+         execution provider on its users. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.20.1" />
+  </ItemGroup>
+
+</Project>
