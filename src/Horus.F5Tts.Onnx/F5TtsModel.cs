@@ -134,7 +134,7 @@ public sealed class F5TtsModel : IDisposable
     {
         var audioTensor = new DenseTensor<short>(referenceAudio, [1, 1, referenceAudio.Length]);
         var textTensor = new DenseTensor<int>(textIds, [1, textIds.Length]);
-        var maxDurTensor = new DenseTensor<long>([maxDuration], [1]);
+        var maxDurTensor = new DenseTensor<long>(new long[] { maxDuration }, new int[] { 1 });
 
         DenseTensor<float> noise, ropeCosQ, ropeSinQ, ropeCosK, ropeSinK, catMelText, catMelTextDrop;
         DenseTensor<long> refSignalLen;
@@ -158,7 +158,7 @@ public sealed class F5TtsModel : IDisposable
         var x = noise;
         for (var step = 0; step < nfeSteps; step++)
         {
-            var timeStep = new DenseTensor<int>([step], [1]);
+            var timeStep = new DenseTensor<int>(new int[] { step }, new int[] { 1 });
             using var res = _transformer.Run([
                 NamedOnnxValue.CreateFromTensor("noise", x),
                 NamedOnnxValue.CreateFromTensor("rope_cos_q", ropeCosQ),
