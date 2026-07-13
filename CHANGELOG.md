@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- Project landing page (`docs/index.html`, served via GitHub Pages) — minimalist, with a
+  light/dark theme toggle.
+
+### Changed
+- README now leads with the "first pure-.NET F5-TTS runner" framing.
+
 ## [0.1.0] - 2026-07-13
 
 Initial release.

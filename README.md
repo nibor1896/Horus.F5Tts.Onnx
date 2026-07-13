@@ -1,12 +1,13 @@
 # Horus.F5Tts.Onnx
 
-Run [**F5-TTS**](https://github.com/SWivid/F5-TTS) text-to-speech from .NET using **pure
-[ONNX Runtime](https://onnxruntime.ai/)** — no Python, no PyTorch. Give it a short reference voice
-clip and some text, get 24 kHz audio back. Runs on CPU or any GPU your ONNX Runtime build supports
-(DirectML for any DX12 GPU, CUDA for NVIDIA).
+> ### The first pure-.NET runner for [F5-TTS](https://github.com/SWivid/F5-TTS).
+> Until now, running F5-TTS meant Python. This library runs it entirely on
+> [ONNX Runtime](https://onnxruntime.ai/) — **no Python, no PyTorch** — from any .NET app.
 
-> Part of the [Horus](https://github.com/nibor1896) project, split out as a standalone library
-> because a clean .NET runner for F5-TTS didn't exist yet.
+Give it a short reference voice clip and some text, get 24 kHz audio back. Runs on CPU or any GPU
+your ONNX Runtime build supports (DirectML for any DX12 GPU, CUDA for NVIDIA).
+
+<sub>Built for and extracted from the [Horus](https://github.com/nibor1896) project.</sub>
 
 ## Install
 
