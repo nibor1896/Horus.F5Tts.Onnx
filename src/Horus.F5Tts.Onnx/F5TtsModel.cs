@@ -125,12 +125,12 @@ public sealed class F5TtsModel : IDisposable
 
         lock (_sync)
         {
-            var samples = RunPipeline(referenceAudio, textIds, maxDuration, options.NfeSteps);
+            var samples = RunPipeline(referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed);
             return new F5TtsResult(samples, SampleRate);
         }
     }
 
-    private short[] RunPipeline(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps)
+    private short[] RunPipeline(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed)
     {
         var audioTensor = new DenseTensor<short>(referenceAudio, [1, 1, referenceAudio.Length]);
         var textTensor = new DenseTensor<int>(textIds, [1, textIds.Length]);
@@ -153,6 +153,14 @@ public sealed class F5TtsModel : IDisposable
             catMelText = Copy<float>(pre, "cat_mel_text");
             catMelTextDrop = Copy<float>(pre, "cat_mel_text_drop");
             refSignalLen = Copy<long>(pre, "ref_signal_len");
+        }
+
+        // When a seed is requested, replace the model's freshly-drawn random noise with deterministic
+        // seeded standard-normal noise of the same shape, so synthesis is reproducible (same
+        // reference + text + seed → identical audio). Left untouched otherwise (natural F5 variation).
+        if (seed is int s)
+        {
+            FillGaussian(noise, s);
         }
 
         // The transformer performs NFE-1 denoising steps. time_step starts at 0 and the model
@@ -187,6 +195,35 @@ public sealed class F5TtsModel : IDisposable
     {
         var tensor = results.First(r => r.Name == name).AsTensor<T>();
         return new DenseTensor<T>(tensor.ToArray(), tensor.Dimensions.ToArray());
+    }
+
+    /// <summary>Fills a tensor in place with deterministic standard-normal noise (Box–Muller) driven
+    /// by a splitmix64 generator. Deliberately not <see cref="Random"/>: a small, well-defined RNG
+    /// reproduces bit-for-bit across platforms and languages, and avoids the occasional unlucky
+    /// <see cref="Random"/> draw whose sequence tail can destabilize the denoiser on some execution
+    /// providers.</summary>
+    private static void FillGaussian(DenseTensor<float> tensor, int seed)
+    {
+        var state = (ulong)(uint)seed;
+        const ulong gamma = 0x9E3779B97F4A7C15UL;
+        double NextDouble()
+        {
+            state += gamma;
+            var z = state;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            z ^= z >> 31;
+            return (z >> 11) * (1.0 / (1UL << 53));
+        }
+
+        var span = tensor.Buffer.Span;
+        for (var i = 0; i < span.Length; i++)
+        {
+            // 1.0 - NextDouble() is in (0,1], which avoids Log(0).
+            var u1 = 1.0 - NextDouble();
+            var u2 = 1.0 - NextDouble();
+            span[i] = (float)(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
+        }
     }
 
     /// <summary>Reads <c>vocab.txt</c> into a token → index map (one token per line, index = line

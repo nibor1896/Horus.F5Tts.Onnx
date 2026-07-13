@@ -20,4 +20,13 @@ public sealed class F5TtsOptions
     /// (e.g. spelling out symbols like "%" or "°C" that the model would otherwise skip). Applied to
     /// the generation text only, not the reference text.</summary>
     public Func<string, string>? TextNormalizer { get; set; }
+
+    /// <summary>Optional fixed seed for the initial diffusion noise. F5-TTS denoises from Gaussian
+    /// noise; by default (null) that noise is drawn fresh each call, so the exact timbre varies
+    /// slightly between runs. Set a seed to make synthesis <b>reproducible</b> — the same reference,
+    /// text and seed always produce identical audio (useful for caching, tests, or a consistent
+    /// assistant voice). Any value works; different seeds give different but equally stable results.
+    /// The seeded generator (splitmix64) is platform-independent, so a seed reproduces across
+    /// machines and execution providers.</summary>
+    public int? Seed { get; set; }
 }

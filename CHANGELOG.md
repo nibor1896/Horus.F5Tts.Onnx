@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- `F5TtsOptions.Seed` (optional) — a fixed seed for the initial diffusion noise. F5-TTS denoises
+  from Gaussian noise drawn fresh each call, so timbre varies slightly between runs; setting a seed
+  makes synthesis reproducible (same reference + text + seed → identical audio). Uses a
+  platform-independent splitmix64 generator, so a seed reproduces across machines and execution
+  providers. Left `null` by default, preserving the natural per-call variation. (Mirrors the fix the
+  Horus app uses to keep its assistant voice consistent — `System.Random` was deliberately avoided
+  because some of its draws destabilized the denoiser tail on DirectML.)
+
 ## [0.1.1] - 2026-07-13
 
 Re-release of 0.1.0. The 0.1.0 package never became available on nuget.org — after an initial
