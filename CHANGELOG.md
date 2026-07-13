@@ -22,8 +22,8 @@ Initial release.
   the library never forces a native runtime on its users (it depends only on the ONNX Runtime
   managed API).
 - `WavAudio` — dependency-free 16-bit PCM WAV read/write helpers.
-- Console sample (`samples/`) and GitHub Actions workflows: CI (build + pack) and NuGet publish
-  (on release).
+- Console sample (`samples/`) and GitHub Actions workflows: CI (build + pack) and NuGet publish on
+  release via NuGet Trusted Publishing (OIDC — no API key or secret to manage).
 
 ### Fixed (pre-release incidents)
 - **Source tree excluded from the first commit.** The `.gitignore` rule `*.onnx` also matched the

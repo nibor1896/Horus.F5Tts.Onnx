@@ -1,12 +1,19 @@
 name: Publish to NuGet
 
 # Publishes the package to nuget.org when you create a GitHub Release.
-# Requires a repository secret named NUGET_API_KEY (Settings → Secrets and variables → Actions).
+# Uses NuGet Trusted Publishing (OIDC) — no API key / secret needed. It requires a matching
+# trusted-publishing policy on nuget.org (Account → Trusted Publishing) that points at this
+# repository and this workflow file (publish.yml).
+#
 # The release tag should match the <Version> in the .csproj (e.g. tag "v0.1.0" for version 0.1.0).
 
 on:
   release:
     types: [ published ]
+
+permissions:
+  id-token: write   # required for OIDC trusted publishing
+  contents: read
 
 jobs:
   publish:
@@ -22,9 +29,15 @@ jobs:
       - name: Pack
         run: dotnet pack src/Horus.F5Tts.Onnx/Horus.F5Tts.Onnx.csproj --configuration Release --output ./artifacts
 
+      - name: NuGet trusted publishing login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: nibor1896
+
       - name: Push to NuGet
         run: >
           dotnet nuget push ./artifacts/*.nupkg
-          --api-key ${{ secrets.NUGET_API_KEY }}
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
