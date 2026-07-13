@@ -121,7 +121,9 @@ public sealed class F5TtsModel : IDisposable
         var genTextLen = Encoding.UTF8.GetByteCount(genText);
         var refAudioLen = referenceAudio.Length / HopLength + 1;
         var speed = options.Speed <= 0 ? 1.0 : options.Speed;
-        var maxDuration = refAudioLen + (long)((double)refAudioLen / refTextLen * genTextLen / speed);
+        var maxDuration = refAudioLen
+            + (long)((double)refAudioLen / refTextLen * genTextLen / speed)
+            + Math.Max(0, options.TailPaddingFrames);
 
         lock (_sync)
         {

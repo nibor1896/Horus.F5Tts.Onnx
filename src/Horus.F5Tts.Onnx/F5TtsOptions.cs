@@ -29,4 +29,10 @@ public sealed class F5TtsOptions
     /// The seeded generator (splitmix64) is platform-independent, so a seed reproduces across
     /// machines and execution providers.</summary>
     public int? Seed { get; set; }
+
+    /// <summary>Extra frames of target duration appended at the end so the model doesn't clip the
+    /// final phoneme — F5-TTS tends to swallow a word-final consonant (e.g. a trailing "t"). At 24 kHz
+    /// with a hop of 256 each frame is ~10.7 ms; the default (12 ≈ 0.13 s) is a small, safe pad. Set
+    /// to 0 to disable.</summary>
+    public int TailPaddingFrames { get; set; } = 12;
 }

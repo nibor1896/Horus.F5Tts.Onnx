@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format is based on
   providers. Left `null` by default, preserving the natural per-call variation. (Mirrors the fix the
   Horus app uses to keep its assistant voice consistent — `System.Random` was deliberately avoided
   because some of its draws destabilized the denoiser tail on DirectML.)
+- `F5TtsOptions.TailPaddingFrames` (default 12) — a few extra frames of target duration at the end
+  so the model doesn't clip the final phoneme (F5-TTS tends to swallow a word-final consonant, e.g.
+  a trailing "t"). Set to 0 to disable. (Mirrors a fix the Horus app uses.)
 
 ## [0.1.1] - 2026-07-13
 
