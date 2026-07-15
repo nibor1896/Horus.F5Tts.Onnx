@@ -9,8 +9,6 @@ your ONNX Runtime build supports (DirectML for any DX12 GPU, CUDA for NVIDIA).
 
 📖 **Read the story:** [Shipping the first .NET F5-TTS library — and the ONNX bug I had to fix first](https://dev.to/nibor1896/shipping-the-first-net-f5-tts-library-and-the-onnx-bug-i-had-to-fix-first-22dc)
 
-<sub>Built for and extracted from the [Horus](https://github.com/nibor1896) project.</sub>
-
 ## Install
 
 ```sh

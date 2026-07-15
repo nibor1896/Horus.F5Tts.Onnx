@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+- README framing: the library is now presented purely as a standalone, general-purpose F5-TTS
+  runner (removed the project-origin subline).
+
 ## [0.1.4] - 2026-07-15
 
 ### Changed
