@@ -18,7 +18,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/nibor1896/Horus.F5Tts.Onnx</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>See CHANGELOG.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>Changelog: https://github.com/nibor1896/Horus.F5Tts.Onnx/blob/main/CHANGELOG.md</PackageReleaseNotes>
 
     <!-- Package quality: deterministic build, embedded source link, and a snupkg symbol package
          so consumers can step into the library while debugging. -->

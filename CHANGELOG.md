@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+- `<PackageReleaseNotes>` now links the CHANGELOG so NuGet's "Release Notes" tab points to the full
+  version history instead of a bare "See CHANGELOG.md." (Takes effect from the next release.)
+
 ## [0.1.3] - 2026-07-15
 
 ### Added
