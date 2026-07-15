@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+- Documentation: a new README "Languages & voices" section spells out that the **voice comes from
+  the reference clip** and the **language/accent from the checkpoint**, how to run several languages
+  (one `F5TtsModel` per model set; the tokenizer/normalizer are the only language-specific bits),
+  and where to get an English export of the base F5-TTS checkpoint. The console sample now shows
+  German and English example invocations and notes it is language-agnostic. (The README ships inside
+  the NuGet package, so this reaches consumers on the next release.)
+
 ## [0.1.2] - 2026-07-15
 
 ### Added

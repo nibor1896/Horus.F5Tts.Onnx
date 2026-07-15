@@ -42,8 +42,12 @@ You need the three ONNX files + `vocab.txt` from an F5-TTS ONNX export
 - `vocab.txt`
 
 A ready-made **German** export lives at
-[nibor1896/F5-TTS-German-ONNX](https://huggingface.co/nibor1896/F5-TTS-German-ONNX). For other
-languages, export your checkpoint with DakeQQ's tooling.
+[nibor1896/F5-TTS-German-ONNX](https://huggingface.co/nibor1896/F5-TTS-German-ONNX).
+
+For **English** (and other languages), use an export of the original F5-TTS checkpoint — DakeQQ's
+repo links a ready-made ONNX export of the base F5-TTS model (English/Chinese), or you can export
+any checkpoint yourself with their tooling. See [Languages & voices](#languages--voices) below for
+how the pieces fit together.
 
 ## Quick start
 
@@ -104,13 +108,48 @@ while (output.PlaybackState == PlaybackState.Playing) Thread.Sleep(100);
 
 Or feed `result.Samples` straight into your own audio pipeline — it's plain 24 kHz mono PCM.
 
+## Languages & voices
+
+Two independent things decide how the output sounds:
+
+- **The speaking voice comes from the reference clip.** Whoever you pass as the reference audio
+  (plus its transcript) is the voice you get back — that's the voice-cloning part.
+- **The language and accent come from the checkpoint.** A German checkpoint speaks German; the base
+  F5-TTS checkpoint speaks English (and Chinese). The reference clip does **not** switch languages —
+  feed English text to a German model and you get garbled, wrongly-accented output.
+
+So: pick the **checkpoint** for the language, pick the **reference clip** for the voice.
+
+### Using a different-language checkpoint
+
+Each checkpoint is one **model set** (three `.onnx` files + `vocab.txt`) and one `F5TtsModel`. To
+support several languages, load one model per language and route each request to the matching one:
+
+```csharp
+using var german  = F5TtsModel.Load("models/de/F5_Preprocess.onnx", /* … */, "models/de/vocab.txt");
+using var english = F5TtsModel.Load("models/en/F5_Preprocess.onnx", /* … */, "models/en/vocab.txt");
+
+var result = german.Synthesize(refDe, referenceText: "Der Referenztext.", text: "Hallo, wie geht es dir?");
+```
+
+Loading is heavy — load the models you need once and keep them; don't reload per call.
+
+The only language-specific pieces are:
+
+- **The checkpoint and its `vocab.txt`** — the model itself.
+- **The tokenizer.** The default `CharTokenizer` (character-level) is correct for Latin-script
+  languages — German, English, French, Spanish, …. Chinese/Japanese need pinyin/jieba segmentation:
+  implement `IF5Tokenizer` and pass it via `F5TtsOptions.Tokenizer`.
+- **The text normalizer** (optional). `F5TtsOptions.TextNormalizer` spells out symbols the model
+  would otherwise skip (`%`, `°C`, digits, …); what to spell out is language-specific, and the
+  library applies whatever `Func<string, string>` you supply.
+
+Everything else — the pipeline, the options, the 24 kHz audio format — is identical across languages.
+
 ## Notes
 
 - **Reference audio** must be 24 kHz mono. `WavAudio.ReadPcm16` loads 16-bit PCM WAV (and
   down-mixes stereo) but does **not** resample — convert beforehand.
-- **Tokenization** defaults to character-level, which is correct for Latin-script languages
-  (German, English, …). Chinese/Japanese need pinyin/jieba segmentation — implement `IF5Tokenizer`
-  and pass it via `F5TtsOptions.Tokenizer`.
 - **NFE steps** (`F5TtsOptions.NfeSteps`, default 32) must match the value the transformer was
   exported with.
 
