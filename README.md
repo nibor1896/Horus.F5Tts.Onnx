@@ -41,13 +41,13 @@ You need the three ONNX files + `vocab.txt` from an F5-TTS ONNX export
 - `F5_Decode.onnx`
 - `vocab.txt`
 
-A ready-made **German** export lives at
-[nibor1896/F5-TTS-German-ONNX](https://huggingface.co/nibor1896/F5-TTS-German-ONNX).
+Ready-made exports:
 
-For **English** (and other languages), use an export of the original F5-TTS checkpoint — DakeQQ's
-repo links a ready-made ONNX export of the base F5-TTS model (English/Chinese), or you can export
-any checkpoint yourself with their tooling. See [Languages & voices](#languages--voices) below for
-how the pieces fit together.
+- **German** — [nibor1896/F5-TTS-German-ONNX](https://huggingface.co/nibor1896/F5-TTS-German-ONNX)
+- **English** — [nibor1896/F5-TTS-English-ONNX](https://huggingface.co/nibor1896/F5-TTS-English-ONNX)
+
+For other languages, export the checkpoint yourself with DakeQQ's tooling. See
+[Languages & voices](#languages--voices) below for how the pieces fit together.
 
 ## Quick start
 

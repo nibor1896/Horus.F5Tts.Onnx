@@ -6,11 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- A ready-made **English** ONNX export — [nibor1896/F5-TTS-English-ONNX](https://huggingface.co/nibor1896/F5-TTS-English-ONNX) — as a second ready-to-use model set alongside the German one (base `F5TTS_v1_Base` checkpoint, exported at NFE 32, CC-BY-NC-4.0), verified end-to-end (Whisper: en, 1.00). The README links both.
+
 ### Changed
 - Documentation: a new README "Languages & voices" section spells out that the **voice comes from
   the reference clip** and the **language/accent from the checkpoint**, how to run several languages
   (one `F5TtsModel` per model set; the tokenizer/normalizer are the only language-specific bits),
-  and where to get an English export of the base F5-TTS checkpoint. The console sample now shows
+  and links ready-made German and English model exports. The console sample now shows
   German and English example invocations and notes it is language-agnostic. (The README ships inside
   the NuGet package, so this reaches consumers on the next release.)
 
