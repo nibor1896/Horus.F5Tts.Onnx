@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-15
+
 ### Added
 - A ready-made **English** ONNX export — [nibor1896/F5-TTS-English-ONNX](https://huggingface.co/nibor1896/F5-TTS-English-ONNX) — as a second ready-to-use model set alongside the German one (base `F5TTS_v1_Base` checkpoint, exported at NFE 32, CC-BY-NC-4.0), verified end-to-end (Whisper: en, 1.00). The README links both.
 
@@ -15,7 +17,10 @@ All notable changes to this project are documented here. The format is based on
   (one `F5TtsModel` per model set; the tokenizer/normalizer are the only language-specific bits),
   and links ready-made German and English model exports. The console sample now shows
   German and English example invocations and notes it is language-agnostic. (The README ships inside
-  the NuGet package, so this reaches consumers on the next release.)
+  the NuGet package, so this reaches consumers with this release.)
+- Added the missing XML doc comments (the `CharTokenizer` constructor and `Encode`, and
+  `F5TtsModel.Dispose`) so every public member is documented — no more `CS1591` build warnings, and
+  complete IntelliSense in the packaged docs.
 
 ## [0.1.2] - 2026-07-15
 
@@ -85,7 +90,8 @@ Initial release.
   driver actually performs `NFE - 1` steps, starting `time_step` at 0 and feeding back the value the
   transformer returns each iteration. Fixed and verified end-to-end (Whisper large-v3: de, 1.00).
 
-[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/releases/tag/v0.1.0

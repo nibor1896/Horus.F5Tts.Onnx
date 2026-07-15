@@ -8,11 +8,14 @@ public sealed class CharTokenizer : IF5Tokenizer
 {
     private readonly IReadOnlyDictionary<string, int> _vocab;
 
+    /// <summary>Creates a character tokenizer over the given vocabulary (token → index map, e.g. the
+    /// one <see cref="F5TtsModel.LoadVocab"/> reads from <c>vocab.txt</c>).</summary>
     public CharTokenizer(IReadOnlyDictionary<string, int> vocab)
     {
         _vocab = vocab ?? throw new ArgumentNullException(nameof(vocab));
     }
 
+    /// <inheritdoc />
     public int[] Encode(string text)
     {
         if (string.IsNullOrEmpty(text))

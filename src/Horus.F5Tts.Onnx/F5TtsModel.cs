@@ -254,6 +254,7 @@ public sealed class F5TtsModel : IDisposable
         return map;
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         _preprocess.Dispose();
