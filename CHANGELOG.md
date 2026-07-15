@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-15
+
 ### Added
 - `F5TtsOptions.Seed` (optional) — a fixed seed for the initial diffusion noise. F5-TTS denoises
   from Gaussian noise drawn fresh each call, so timbre varies slightly between runs; setting a seed
@@ -72,6 +74,7 @@ Initial release.
   driver actually performs `NFE - 1` steps, starting `time_step` at 0 and feeding back the value the
   transformer returns each iteration. Fixed and verified end-to-end (Whisper large-v3: de, 1.00).
 
-[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/releases/tag/v0.1.0
