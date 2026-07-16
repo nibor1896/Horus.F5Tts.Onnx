@@ -24,6 +24,10 @@ All notable changes to this project are documented here. The format is based on
   package as the license requires. The SPDX `PackageLicenseExpression` is unchanged.
 
 ### Changed
+- The console sample takes an optional `[seed]` argument and prints a fingerprint of the generated
+  samples. With a seed the fingerprint is stable across runs, machines and execution providers, so
+  "did this change alter the audio?" becomes a yes/no comparison instead of a listening test. It also
+  demonstrates `F5TtsOptions.Seed`, which the sample did not show before.
 - README framing: the library is now presented purely as a standalone, general-purpose F5-TTS
   runner (removed the project-origin subline).
 
