@@ -1,4 +1,5 @@
 using Horus.F5Tts.Onnx;
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Xunit;
 
@@ -13,6 +14,13 @@ public class SeedNoiseTests
     private static float[] Fill(int length, int seed)
     {
         var tensor = new DenseTensor<float>(new int[] { length });
+        F5TtsModel.FillGaussian(tensor, seed);
+        return tensor.ToArray();
+    }
+
+    private static Float16[] FillHalf(int length, int seed)
+    {
+        var tensor = new DenseTensor<Float16>(new int[] { length });
         F5TtsModel.FillGaussian(tensor, seed);
         return tensor.ToArray();
     }
@@ -47,6 +55,30 @@ public class SeedNoiseTests
         Assert.DoesNotContain(values, v => float.IsNaN(v) || float.IsInfinity(v));
         // A constant fill would mean the generator never advanced.
         Assert.True(values.Distinct().Count() > 400);
+    }
+
+    [Fact]
+    public void FillGaussian_is_deterministic_for_half_precision_too()
+    {
+        // FP16 exports need the same promise: a seed reproduces the audio.
+        Assert.Equal(FillHalf(256, 42), FillHalf(256, 42));
+        Assert.NotEqual(FillHalf(256, 42), FillHalf(256, 43));
+    }
+
+    [Fact]
+    public void FillGaussian_draws_the_same_sequence_for_half_as_for_single()
+    {
+        // Both precisions must share one generator: the half values are simply the single values
+        // rounded to the nearest representable half. If anyone ever gives the FP16 path an RNG of its
+        // own, the two sequences drift and this catches it — a divergence that would otherwise only
+        // show up as "the FP16 audio sounds subtly different than it should", i.e. never.
+        var single = Fill(128, 42);
+        var half = FillHalf(128, 42);
+
+        for (var i = 0; i < single.Length; i++)
+        {
+            Assert.Equal((float)(Float16)single[i], (float)half[i]);
+        }
     }
 
     [Fact]

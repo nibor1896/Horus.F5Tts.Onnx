@@ -161,6 +161,12 @@ Everything else — the pipeline, the options, the 24 kHz audio format — is id
   the file untouched if you'd rather handle the rate yourself.
 - **NFE steps** (`F5TtsOptions.NfeSteps`, default 32) must match the value the transformer was
   exported with.
+- **Half precision (FP16)** works out of the box: the library reads the precision off the model and
+  marshals the right tensors, so an FP16 export needs no different code and no extra setting. It is
+  worth seeking out — measured on DirectML with the same reference and text, an FP16 export ran a
+  denoising step in **60 ms against 617 ms** for the F32 one, and the model is half the size
+  (630 MB vs 1.32 GB). The same seed produces *different* audio on FP16 than on F32: fewer bits,
+  different numbers. Within one precision a seed reproduces exactly, as documented.
 
 ## Credits & license
 

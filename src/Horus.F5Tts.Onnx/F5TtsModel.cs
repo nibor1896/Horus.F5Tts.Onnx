@@ -28,6 +28,12 @@ public sealed class F5TtsModel : IDisposable
     private readonly InferenceSession _decode;
     private readonly IReadOnlyDictionary<string, int> _vocab;
     private readonly CharTokenizer _defaultTokenizer;
+
+    /// <summary>Whether this export works in half precision. Read from the model itself rather than
+    /// asked of the caller: an FP16 export is self-consistent (its preprocess already emits
+    /// <c>Float16</c>, which the transformer and decode then expect), so the tensors the pipeline
+    /// marshals have to match, and nothing about that is the consumer's business.</summary>
+    private readonly bool _isFloat16;
     /// <summary>Serializes the model work. Deliberately a semaphore rather than a <c>lock</c>: the
     /// async path can then queue without blocking a thread-pool thread, and a caller can still be
     /// cancelled while it waits its turn.
@@ -45,6 +51,8 @@ public sealed class F5TtsModel : IDisposable
         _decode = decode;
         _vocab = vocab;
         _defaultTokenizer = new CharTokenizer(vocab);
+        _isFloat16 = preprocess.OutputMetadata.TryGetValue("noise", out var noiseMeta)
+                     && noiseMeta.ElementType == typeof(Float16);
     }
 
     /// <summary>The audio sample rate of the synthesized output (24 kHz).</summary>
@@ -181,8 +189,11 @@ public sealed class F5TtsModel : IDisposable
     /// <summary>The model work itself. Only ever runs while the gate is held.</summary>
     private F5TtsResult Execute(Plan plan, CancellationToken cancellationToken)
     {
-        var samples = RunPipeline(
-            plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps, plan.Seed, cancellationToken);
+        var samples = _isFloat16
+            ? RunPipeline<Float16>(
+                plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps, plan.Seed, cancellationToken)
+            : RunPipeline<float>(
+                plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps, plan.Seed, cancellationToken);
         return new F5TtsResult(samples, SampleRate);
     }
 
@@ -217,8 +228,14 @@ public sealed class F5TtsModel : IDisposable
             + Math.Max(0, tailPaddingFrames);
     }
 
-    private short[] RunPipeline(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed,
+    /// <summary>The pipeline, generic over the export's float element type: <c>float</c> for an F32
+    /// export, <see cref="Float16"/> for a half-precision one. Nothing in here does arithmetic on the
+    /// element — the tensors are only marshalled between the three models — so one body serves both
+    /// rather than two copies that could drift apart.</summary>
+    /// <typeparam name="T">Must match what this export uses; see <see cref="_isFloat16"/>.</typeparam>
+    private short[] RunPipeline<T>(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed,
         CancellationToken cancellationToken)
+        where T : struct
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -226,7 +243,7 @@ public sealed class F5TtsModel : IDisposable
         var textTensor = new DenseTensor<int>(textIds, [1, textIds.Length]);
         var maxDurTensor = new DenseTensor<long>(new long[] { maxDuration }, new int[] { 1 });
 
-        DenseTensor<float> noise, ropeCosQ, ropeSinQ, ropeCosK, ropeSinK, catMelText, catMelTextDrop;
+        DenseTensor<T> noise, ropeCosQ, ropeSinQ, ropeCosK, ropeSinK, catMelText, catMelTextDrop;
         DenseTensor<long> refSignalLen;
 
         using (var pre = _preprocess.Run([
@@ -235,22 +252,34 @@ public sealed class F5TtsModel : IDisposable
             NamedOnnxValue.CreateFromTensor("max_duration", maxDurTensor),
         ]))
         {
-            noise = Copy<float>(pre, "noise");
-            ropeCosQ = Copy<float>(pre, "rope_cos_q");
-            ropeSinQ = Copy<float>(pre, "rope_sin_q");
-            ropeCosK = Copy<float>(pre, "rope_cos_k");
-            ropeSinK = Copy<float>(pre, "rope_sin_k");
-            catMelText = Copy<float>(pre, "cat_mel_text");
-            catMelTextDrop = Copy<float>(pre, "cat_mel_text_drop");
+            noise = Copy<T>(pre, "noise");
+            ropeCosQ = Copy<T>(pre, "rope_cos_q");
+            ropeSinQ = Copy<T>(pre, "rope_sin_q");
+            ropeCosK = Copy<T>(pre, "rope_cos_k");
+            ropeSinK = Copy<T>(pre, "rope_sin_k");
+            catMelText = Copy<T>(pre, "cat_mel_text");
+            catMelTextDrop = Copy<T>(pre, "cat_mel_text_drop");
             refSignalLen = Copy<long>(pre, "ref_signal_len");
         }
 
         // When a seed is requested, replace the model's freshly-drawn random noise with deterministic
         // seeded standard-normal noise of the same shape, so synthesis is reproducible (same
         // reference + text + seed → identical audio). Left untouched otherwise (natural F5 variation).
+        // The generator is identical for both precisions; only the final conversion differs, so a seed
+        // stays reproducible within a precision — across them the audio differs, as it must.
         if (seed is int s)
         {
-            FillGaussian(noise, s);
+            switch ((object)noise)
+            {
+                case DenseTensor<float> f:
+                    FillGaussian(f, s);
+                    break;
+                case DenseTensor<Float16> h:
+                    FillGaussian(h, s);
+                    break;
+                default:
+                    throw new NotSupportedException($"Seeding is not supported for element type {typeof(T)}.");
+            }
         }
 
         // The transformer performs NFE-1 denoising steps. time_step starts at 0 and the model
@@ -274,7 +303,7 @@ public sealed class F5TtsModel : IDisposable
                 NamedOnnxValue.CreateFromTensor("cat_mel_text_drop", catMelTextDrop),
                 NamedOnnxValue.CreateFromTensor("time_step.1", timeStep),
             ]);
-            x = Copy<float>(res, "denoised");
+            x = Copy<T>(res, "denoised");
             timeStep = Copy<int>(res, "time_step");
         }
 
@@ -300,25 +329,55 @@ public sealed class F5TtsModel : IDisposable
     /// providers.</summary>
     internal static void FillGaussian(DenseTensor<float> tensor, int seed)
     {
-        var state = (ulong)(uint)seed;
-        const ulong gamma = 0x9E3779B97F4A7C15UL;
-        double NextDouble()
-        {
-            state += gamma;
-            var z = state;
-            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
-            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
-            z ^= z >> 31;
-            return (z >> 11) * (1.0 / (1UL << 53));
-        }
-
+        var source = new GaussianSource(seed);
         var span = tensor.Buffer.Span;
         for (var i = 0; i < span.Length; i++)
+        {
+            span[i] = (float)source.Next();
+        }
+    }
+
+    /// <summary>Half-precision counterpart for FP16 exports. Same generator, same draw order, so a
+    /// seed is exactly as reproducible — the values simply land on the nearest representable half.
+    /// That is also why the same seed yields different audio on an FP16 export than on an F32 one:
+    /// less precision, different numbers, by design.</summary>
+    internal static void FillGaussian(DenseTensor<Float16> tensor, int seed)
+    {
+        var source = new GaussianSource(seed);
+        var span = tensor.Buffer.Span;
+        for (var i = 0; i < span.Length; i++)
+        {
+            span[i] = (Float16)(float)source.Next();
+        }
+    }
+
+    /// <summary>splitmix64 + Box–Muller, shared by both precisions so their draw sequences cannot
+    /// drift apart.</summary>
+    private struct GaussianSource
+    {
+        private const ulong Gamma = 0x9E3779B97F4A7C15UL;
+
+        private ulong _state;
+
+        public GaussianSource(int seed) => _state = (ulong)(uint)seed;
+
+        /// <summary>One standard-normal draw. Consumes two uniforms, in that order.</summary>
+        public double Next()
         {
             // 1.0 - NextDouble() is in (0,1], which avoids Log(0).
             var u1 = 1.0 - NextDouble();
             var u2 = 1.0 - NextDouble();
-            span[i] = (float)(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
+            return Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2);
+        }
+
+        private double NextDouble()
+        {
+            _state += Gamma;
+            var z = _state;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            z ^= z >> 31;
+            return (z >> 11) * (1.0 / (1UL << 53));
         }
     }
 

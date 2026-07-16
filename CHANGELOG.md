@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- **Half-precision (FP16) exports are supported.** The precision is read off the model at load time —
+  an FP16 export is self-consistent (its preprocess already emits `Float16`, which the transformer and
+  decode expect), so the library simply marshals the matching tensors. No new option, no code change
+  for consumers: the public API still takes and returns `short[]`.
+
+  This is worth having. Measured on DirectML with the same reference clip and text, one denoising step
+  took **60 ms on the FP16 export against 617 ms on F32** — and the model is half the size (630 MB vs
+  1.32 GB). Whole-synthesis time went from 20.6 s to 3.2 s.
+
+  Note that the same seed produces *different* audio on an FP16 export than on an F32 one: fewer bits,
+  different numbers. Within one precision a seed still reproduces exactly, and both precisions share a
+  single noise generator, so their draw sequences cannot drift apart.
 - `F5TtsModel.SynthesizeAsync(...)` — runs the synthesis on a background thread and accepts a
   `CancellationToken`, so UI and server callers no longer need the manual `Task.Run` dance the README
   used to prescribe. Cancellation is checked **between denoising steps** rather than only up front:
