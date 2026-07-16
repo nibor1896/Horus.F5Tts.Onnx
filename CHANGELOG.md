@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-16
+
 ### Added
 - `F5TtsModel.SynthesizeLong(...)` / `SynthesizeLongAsync(...)` and the public `TextChunker` — speak text
   of any length. A single pass generates the reference clip *and* the new speech together and degrades
@@ -171,7 +173,8 @@ Initial release.
   driver actually performs `NFE - 1` steps, starting `time_step` at 0 and feeding back the value the
   transformer returns each iteration. Fixed and verified end-to-end (Whisper large-v3: de, 1.00).
 
-[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.1...v0.1.2
