@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- The `LICENSE` file now ships inside the NuGet package, so the MIT copyright notice — and the note
+  that the F5-TTS model weights carry their own, partly non-commercial licenses — travels with the
+  package as the license requires. The SPDX `PackageLicenseExpression` is unchanged.
+
 ### Changed
 - README framing: the library is now presented purely as a standalone, general-purpose F5-TTS
   runner (removed the project-origin subline).

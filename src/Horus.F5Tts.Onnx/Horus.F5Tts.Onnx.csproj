@@ -32,6 +32,9 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <!-- The license is declared via PackageLicenseExpression (SPDX); ship the file too so the MIT
+         copyright notice travels with the package, as the license itself requires. -->
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
