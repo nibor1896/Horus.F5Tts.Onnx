@@ -208,9 +208,29 @@
         <p>The library never forces an execution provider. Pick CPU, DirectML (any DX12 GPU) or CUDA with a one-line session hook.</p>
       </div>
       <div class="card">
-        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></div>
-        <h3>Tiny surface</h3>
-        <p>Load the model, call <span class="mono">Synthesize</span> — or <span class="mono">SynthesizeAsync</span> with a token, or <span class="mono">SynthesizeLong</span> for a whole paragraph. Resampling, tokenizer and WAV helpers included.</p>
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg></div>
+        <h3>10× on your GPU</h3>
+        <p>Half-precision exports are detected automatically — no option to set. Measured on DirectML: <strong>60&nbsp;ms</strong> per denoising step against 617&nbsp;ms, and half the model to download.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div>
+        <h3>Text of any length</h3>
+        <p>One pass degrades past ~22&nbsp;seconds. <span class="mono">SynthesizeLong</span> works out the budget, splits at sentence boundaries and cross-fades the pieces — text that already fits costs nothing extra.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div>
+        <h3>Reproducible on demand</h3>
+        <p>Set a seed and the same input yields <strong>bit-identical</strong> audio — across machines and execution providers. Leave it unset for F5's natural variation.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <h3>Built for real apps</h3>
+        <p><span class="mono">SynthesizeAsync</span> takes a <span class="mono">CancellationToken</span> that actually bites — a request can be dropped mid-synthesis, or while it waits its turn.</p>
+      </div>
+      <div class="card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l3-7 4 14 3-7h5"/></svg></div>
+        <h3>Feed it any clip</h3>
+        <p>Reference audio at 44.1, 48&nbsp;kHz, stereo — it is resampled and down-mixed for you, with a windowed-sinc kernel so downsampling never aliases into the voice you are cloning.</p>
       </div>
     </div>
   </section>
