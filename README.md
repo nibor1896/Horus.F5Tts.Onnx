@@ -72,8 +72,17 @@ var result = model.Synthesize(
 File.WriteAllBytes("out.wav", result.ToWav()); // 24 kHz mono WAV
 ```
 
-`Synthesize` is synchronous and CPU/GPU-bound — call it from a background thread
-(`await Task.Run(() => model.Synthesize(...))`) in UI apps.
+`Synthesize` is synchronous and CPU/GPU-bound. In a UI or server app use `SynthesizeAsync`, which
+runs it on a background thread and takes a `CancellationToken`:
+
+```csharp
+var result = await model.SynthesizeAsync(
+    referenceAudio, referenceText, text, cancellationToken: token);
+```
+
+Cancellation is honoured **between denoising steps**, so a long request can be abandoned part-way
+instead of only before it starts (a step is the granularity — a call already inside ONNX Runtime
+can't be interrupted).
 
 ## What you get back
 

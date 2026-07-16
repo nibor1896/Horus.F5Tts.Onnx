@@ -98,6 +98,30 @@ public sealed class F5TtsModel : IDisposable
     /// <param name="options">Optional synthesis options (NFE steps, speed, custom tokenizer,
     /// text normalizer).</param>
     public F5TtsResult Synthesize(short[] referenceAudio, string referenceText, string text, F5TtsOptions? options = null)
+        => SynthesizeCore(referenceAudio, referenceText, text, options, CancellationToken.None);
+
+    /// <summary>Synthesizes on a background thread, so a UI or request thread is not blocked by the
+    /// CPU/GPU-bound work. Identical to <see cref="Synthesize"/> in every other respect — same audio
+    /// for the same inputs.</summary>
+    /// <remarks>Cancellation is checked before the pipeline starts and <b>between denoising steps</b>:
+    /// the library drives that loop itself, so a request can be abandoned part-way instead of only
+    /// before it begins. One step is the granularity — an ONNX Runtime call already in flight cannot
+    /// be interrupted, so cancelling takes effect within roughly one step, which is on the order of a
+    /// second for a large model.</remarks>
+    /// <param name="referenceAudio">The reference voice, as 24 kHz mono 16-bit PCM.</param>
+    /// <param name="referenceText">The transcript of <paramref name="referenceAudio"/>.</param>
+    /// <param name="text">The text to speak.</param>
+    /// <param name="options">Optional synthesis options.</param>
+    /// <param name="cancellationToken">Cancels the synthesis; see the remarks for the granularity.</param>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
+    public Task<F5TtsResult> SynthesizeAsync(short[] referenceAudio, string referenceText, string text,
+        F5TtsOptions? options = null, CancellationToken cancellationToken = default)
+        => Task.Run(
+            () => SynthesizeCore(referenceAudio, referenceText, text, options, cancellationToken),
+            cancellationToken);
+
+    private F5TtsResult SynthesizeCore(short[] referenceAudio, string referenceText, string text,
+        F5TtsOptions? options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(referenceAudio);
         ArgumentNullException.ThrowIfNull(referenceText);
@@ -114,7 +138,8 @@ public sealed class F5TtsModel : IDisposable
 
         lock (_sync)
         {
-            var samples = RunPipeline(referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed);
+            var samples = RunPipeline(
+                referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed, cancellationToken);
             return new F5TtsResult(samples, SampleRate);
         }
     }
@@ -150,8 +175,11 @@ public sealed class F5TtsModel : IDisposable
             + Math.Max(0, tailPaddingFrames);
     }
 
-    private short[] RunPipeline(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed)
+    private short[] RunPipeline(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var audioTensor = new DenseTensor<short>(referenceAudio, [1, 1, referenceAudio.Length]);
         var textTensor = new DenseTensor<int>(textIds, [1, textIds.Length]);
         var maxDurTensor = new DenseTensor<long>(new long[] { maxDuration }, new int[] { 1 });
@@ -190,6 +218,10 @@ public sealed class F5TtsModel : IDisposable
         var timeStep = new DenseTensor<int>(new int[] { 0 }, new int[] { 1 });
         for (var i = 0; i < nfeSteps - 1; i++)
         {
+            // The only place a long synthesis can be abandoned: one step is in flight at a time and
+            // ONNX Runtime cannot be interrupted mid-call, so this is the achievable granularity.
+            cancellationToken.ThrowIfCancellationRequested();
+
             using var res = _transformer.Run([
                 NamedOnnxValue.CreateFromTensor("noise", x),
                 NamedOnnxValue.CreateFromTensor("rope_cos_q", ropeCosQ),
@@ -203,6 +235,8 @@ public sealed class F5TtsModel : IDisposable
             x = Copy<float>(res, "denoised");
             timeStep = Copy<int>(res, "time_step");
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         using var dec = _decode.Run([
             NamedOnnxValue.CreateFromTensor("denoised", x),

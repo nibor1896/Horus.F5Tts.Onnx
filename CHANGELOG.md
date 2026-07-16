@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `F5TtsModel.SynthesizeAsync(...)` — runs the synthesis on a background thread and accepts a
+  `CancellationToken`, so UI and server callers no longer need the manual `Task.Run` dance the README
+  used to prescribe. Cancellation is checked **between denoising steps** rather than only up front:
+  the library drives that loop itself, so a long request can be abandoned part-way. One step is the
+  honest granularity — a call already inside ONNX Runtime cannot be interrupted. The existing
+  synchronous `Synthesize` signature is untouched (adding an optional parameter to it would have been
+  a binary-breaking change for anyone already compiled against 0.1.4).
 - `WavAudio.ReadPcm16Resampled(path, targetRate)` and `WavAudio.Resample(samples, from, to)` — load a
   reference clip at **any** sample rate and convert it to the model's 24 kHz, still with no extra
   dependency. Previously the caller had to convert the file beforehand (with ffmpeg or similar), which
