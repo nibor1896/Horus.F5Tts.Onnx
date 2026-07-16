@@ -186,6 +186,7 @@
   <span class="chip">.NET 8+</span>
   <span class="chip">ONNX Runtime</span>
   <span class="chip">CPU · DirectML · CUDA</span>
+  <span class="chip">FP16 · 10× on GPU</span>
   <span class="chip">No Python</span>
 </div></div>
 
@@ -209,7 +210,7 @@
       <div class="card">
         <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></div>
         <h3>Tiny surface</h3>
-        <p>Load the model, call <span class="mono">Synthesize</span>, get 24&nbsp;kHz audio. Character-level tokenizer and WAV helpers included.</p>
+        <p>Load the model, call <span class="mono">Synthesize</span> — or <span class="mono">SynthesizeAsync</span> with a token, or <span class="mono">SynthesizeLong</span> for a whole paragraph. Resampling, tokenizer and WAV helpers included.</p>
       </div>
     </div>
   </section>
@@ -228,9 +229,10 @@
     <span class="s">"F5_Decode.onnx"</span>, <span class="s">"vocab.txt"</span>,
     configureSession: o =&gt; o.AppendExecutionProvider_DML(<span class="t">0</span>));
 
-<span class="k">var</span> (reference, _) = <span class="t">WavAudio</span>.ReadPcm16(<span class="s">"voice.wav"</span>); <span class="c">// 24 kHz mono</span>
+<span class="c">// Any sample rate — resampled to the 24 kHz the model wants.</span>
+<span class="k">var</span> reference = <span class="t">WavAudio</span>.ReadPcm16Resampled(<span class="s">"voice.wav"</span>, <span class="t">24000</span>);
 
-<span class="k">var</span> result = model.Synthesize(
+<span class="k">var</span> result = model.SynthesizeLong(
     reference,
     referenceText: <span class="s">"Transcript of the reference clip."</span>,
     text: <span class="s">"And this is the new sentence to speak."</span>);
@@ -244,7 +246,7 @@
     <h2>A three-model pipeline.</h2>
     <p class="sec-intro">Faithful to the F5-TTS ONNX export — the driver just runs the loop.</p>
     <div class="flow">
-      <div class="step"><div class="n">Input</div><div class="t">Reference&nbsp;+&nbsp;text</div><div class="d">24&nbsp;kHz clip and its transcript</div></div>
+      <div class="step"><div class="n">Input</div><div class="t">Reference&nbsp;+&nbsp;text</div><div class="d">a clip at any rate, and its transcript</div></div>
       <div class="arr">→</div>
       <div class="step"><div class="n">01</div><div class="t">Preprocess</div><div class="d">mel + RoPE + noise</div></div>
       <div class="arr">→</div>
@@ -259,7 +261,7 @@
       <p class="sec-label">The first of its kind</p>
       <h2>Why this didn't exist before.</h2>
       <p>Running F5-TTS meant Python. And exporting non-English checkpoints to ONNX produced garbled speech — the exporter assumed the newer architecture. We found the root cause, fixed it, and contributed it upstream in <a href="https://github.com/DakeQQ/F5-TTS-ONNX/pull/74">DakeQQ/F5-TTS-ONNX #74</a> (merged). Then wrapped the working pipeline in a clean .NET API.</p>
-      <p style="margin-top:14px">The result is the first library that runs F5-TTS — in any language it supports — natively from .NET. A ready-to-use German model is provided; point it at any F5-TTS ONNX export for other languages.</p>
+      <p style="margin-top:14px">The result is the first library that runs F5-TTS — in any language it supports — natively from .NET. Ready-to-use German and English models are provided; point it at any F5-TTS ONNX export for other languages.</p>
     </div>
   </section>
 
@@ -283,17 +285,18 @@
         <a href="https://github.com/SWivid/F5-TTS">F5-TTS</a>
         <a href="https://github.com/DakeQQ/F5-TTS-ONNX">DakeQQ/F5-TTS-ONNX</a>
         <a href="https://huggingface.co/nibor1896/F5-TTS-German-ONNX">German model (HF)</a>
+        <a href="https://huggingface.co/nibor1896/F5-TTS-English-ONNX">English model (HF)</a>
       </div>
       <div class="foot-col">
         <h4>Support</h4>
         <a href="https://github.com/nibor1896/Horus.F5Tts.Onnx#readme">README &amp; docs</a>
+        <a href="https://dev.to/nibor1896/shipping-the-first-net-f5-tts-library-and-the-onnx-bug-i-had-to-fix-first-22dc">Read the story</a>
         <a href="https://paypal.me/RobinLudwig240">☕ Buy me a coffee</a>
-        <a href="https://github.com/nibor1896">Part of Horus</a>
       </div>
     </div>
     <div class="foot-bottom">
       <span>MIT licensed · © 2026 nibor1896</span>
-      <span class="mono">The bundled German model is CC-BY-NC-4.0 · not affiliated with F5-TTS</span>
+      <span class="mono">Model weights carry their own licence (CC-BY-NC-4.0) · not affiliated with F5-TTS</span>
     </div>
   </div>
 </footer>

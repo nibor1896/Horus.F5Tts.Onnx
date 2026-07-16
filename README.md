@@ -182,6 +182,16 @@ Everything else — the pipeline, the options, the 24 kHz audio format — is id
   the file untouched if you'd rather handle the rate yourself.
 - **NFE steps** (`F5TtsOptions.NfeSteps`, default 32) must match the value the transformer was
   exported with.
+- **The reference clip's noise is inherited — use a clean recording, not a quiet one.** Voice cloning
+  copies the voice *and* its noise floor. Measured with the stock F5-TTS demo clip: the reference sits
+  at −46.7 dBFS of noise and the output lands at −48 dBFS, i.e. right behind it. Turning the reference
+  down does **not** help: the model normalises it internally, so signal and noise come back up
+  together. A 3 dB quieter reference measurably produced output at the *same* level with the *same*
+  noise floor. What matters is the reference's signal-to-noise ratio, not its volume.
+- **The output can reach full scale and clip a little** — a few dozen samples in a 2.7 s clip, in
+  practice. This happens inside the decode graph, which emits `Int16` directly, so the peaks are
+  already flattened before the library ever sees them; attenuating afterwards would only make the
+  distortion quieter. It is a property of the model, not something this library can undo.
 - **Half precision (FP16)** works out of the box — the library reads the precision off the model and
   marshals the right tensors, so an FP16 export needs no different code and no extra setting. But
   **match it to your execution provider**, because it cuts both ways (measured, same reference and

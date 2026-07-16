@@ -62,6 +62,9 @@ All notable changes to this project are documented here. The format is based on
   package as the license requires. The SPDX `PackageLicenseExpression` is unchanged.
 
 ### Changed
+- Landing page (`docs/`) brought up to date with the library: the quick start uses the resampling
+  loader and `SynthesizeLong`, FP16 is called out, the English model is listed, and the stale pointer
+  to the discontinued parent project is gone.
 - Synthesis is serialized with a `SemaphoreSlim` instead of a `lock`. Calls against one instance are
   still queued rather than parallelised: ONNX Runtime does not document whether `Run` may be called
   concurrently on a single session, and the workload is compute-bound anyway — parallel calls would
