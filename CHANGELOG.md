@@ -22,6 +22,12 @@ All notable changes to this project are documented here. The format is based on
   to 24 kHz, where linear interpolation folds the discarded high frequencies back as audible aliasing
   — and the reference clip is what the voice is cloned from, so that distortion would be inherited by
   every synthesized sentence. `WavAudio.ReadPcm16` is unchanged and still returns the file untouched.
+- Model-backed tests that drive the real ONNX pipeline — async produces the same audio as sync for a
+  given seed, cancellation is honoured, and a seed reproduces audio end-to-end (the whole-pipeline
+  version of what the noise-generator unit test pins in isolation). Opt-in: point `F5_TEST_MODELS` at
+  a folder with the three `.onnx` files plus `vocab.txt`. Without it they skip themselves, so CI stays
+  fast and needs no 1.4 GB download. They assert mechanics only — no assertion can hear whether the
+  output sounds like speech, so quality remains a listening test plus a Whisper transcription.
 - A unit-test suite covering the model-free code paths — WAV round-trip and header/stereo/16-bit
   handling, `vocab.txt` loading (LF/CRLF, trailing newline), `CharTokenizer`, the target-duration
   maths, and the determinism of the seeded diffusion noise. It needs no model files, so CI runs it
