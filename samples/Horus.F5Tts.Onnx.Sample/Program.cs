@@ -16,7 +16,7 @@ using Horus.F5Tts.Onnx;
 //   Horus.F5Tts.Onnx.Sample models/en ref_en.wav "The reference transcript." "Hello, how are you?" out.wav
 //
 // <modelDir> must contain F5_Preprocess.onnx, F5_Transformer.onnx, F5_Decode.onnx and vocab.txt.
-// <reference.wav> must be 24 kHz mono 16-bit PCM.
+// <reference.wav> is any 16-bit PCM WAV — the sample resamples/down-mixes it as needed.
 
 if (args.Length < 5)
 {
@@ -35,13 +35,8 @@ using var model = F5TtsModel.Load(
 // To use a GPU instead of CPU, add the matching runtime package and pass e.g.:
 //   configureSession: o => o.AppendExecutionProvider_DML(0)
 
-var (referenceAudio, sampleRate) = WavAudio.ReadPcm16(args[1]);
-if (sampleRate != model.OutputSampleRate)
-{
-    Console.Error.WriteLine(
-        $"Warning: reference is {sampleRate} Hz, but the model expects {model.OutputSampleRate} Hz. " +
-        "Resample it for best results.");
-}
+// Any sample rate works: the clip is converted to whatever the model expects (24 kHz).
+var referenceAudio = WavAudio.ReadPcm16Resampled(args[1], model.OutputSampleRate);
 
 var sw = Stopwatch.StartNew();
 var result = model.Synthesize(referenceAudio, referenceText: args[2], text: args[3]);

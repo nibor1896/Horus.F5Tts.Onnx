@@ -60,8 +60,8 @@ using var model = F5TtsModel.Load(
     "models/vocab.txt",
     configureSession: o => o.AppendExecutionProvider_DML(0)); // or omit for CPU
 
-// Reference voice: 24 kHz mono 16-bit PCM, plus its transcript.
-var (referenceAudio, _) = WavAudio.ReadPcm16("reference.wav");
+// Reference voice + its transcript. Any sample rate: this converts it to the 24 kHz the model wants.
+var referenceAudio = WavAudio.ReadPcm16Resampled("reference.wav", 24000);
 
 var result = model.Synthesize(
     referenceAudio,
@@ -146,8 +146,10 @@ Everything else — the pipeline, the options, the 24 kHz audio format — is id
 
 ## Notes
 
-- **Reference audio** must be 24 kHz mono. `WavAudio.ReadPcm16` loads 16-bit PCM WAV (and
-  down-mixes stereo) but does **not** resample — convert beforehand.
+- **Reference audio** must end up 24 kHz mono. `WavAudio.ReadPcm16Resampled(path, 24000)` loads a
+  16-bit PCM WAV at *any* rate, down-mixes stereo and converts it for you — with a windowed-sinc
+  kernel, so downsampling (44.1/48 kHz → 24 kHz) does not alias. `WavAudio.ReadPcm16` still returns
+  the file untouched if you'd rather handle the rate yourself.
 - **NFE steps** (`F5TtsOptions.NfeSteps`, default 32) must match the value the transformer was
   exported with.
 

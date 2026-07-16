@@ -1,13 +1,19 @@
 namespace Horus.F5Tts.Onnx;
 
 /// <summary>Minimal, dependency-free RIFF/WAV helpers for 16-bit PCM. Just enough to load a
-/// reference clip and to save the synthesized result — no resampling. F5-TTS works at 24 kHz mono;
-/// convert your reference clips to that beforehand (any audio tool does this).</summary>
+/// reference clip and to save the synthesized result. F5-TTS works at 24 kHz mono:
+/// <see cref="ReadPcm16Resampled(string, int)"/> loads a clip at any rate and converts it for you,
+/// while <see cref="ReadPcm16(string)"/> hands back exactly what is in the file.</summary>
 public static class WavAudio
 {
+    /// <summary>Lanczos lobes for <see cref="Resample"/>. Eight is a good quality/cost trade for
+    /// speech; the kernel widens automatically when downsampling.</summary>
+    private const int ResampleLobes = 8;
+
     /// <summary>Reads a 16-bit PCM WAV file into mono samples. Stereo input is down-mixed. The
-    /// original sample rate is returned unchanged (no resampling) — the caller is responsible for
-    /// ensuring it matches what the model expects (24 kHz).</summary>
+    /// original sample rate is returned unchanged — this overload does <b>not</b> resample. Use
+    /// <see cref="ReadPcm16Resampled(string, int)"/> when the clip may not already be at the rate
+    /// the model expects (24 kHz).</summary>
     public static (short[] Samples, int SampleRate) ReadPcm16(string path)
     {
         using var stream = File.OpenRead(path);
@@ -98,6 +104,102 @@ public static class WavAudio
         }
 
         return (samples, sampleRate);
+    }
+
+    /// <summary>Reads a 16-bit PCM WAV file as mono at <paramref name="targetSampleRate"/>, resampling
+    /// if the file uses a different rate (stereo is down-mixed first). This is the one-liner for
+    /// loading a reference clip that is not already at the model's 24 kHz.</summary>
+    /// <param name="path">Path to a 16-bit PCM WAV file, at any sample rate.</param>
+    /// <param name="targetSampleRate">The rate to convert to, e.g. <c>24000</c> for F5-TTS.</param>
+    public static short[] ReadPcm16Resampled(string path, int targetSampleRate)
+    {
+        using var stream = File.OpenRead(path);
+        return ReadPcm16Resampled(stream, targetSampleRate);
+    }
+
+    /// <summary>Reads a 16-bit PCM WAV stream as mono at <paramref name="targetSampleRate"/>
+    /// (see <see cref="ReadPcm16Resampled(string, int)"/>).</summary>
+    public static short[] ReadPcm16Resampled(Stream stream, int targetSampleRate)
+    {
+        var (samples, sampleRate) = ReadPcm16(stream);
+        return Resample(samples, sampleRate, targetSampleRate);
+    }
+
+    /// <summary>Resamples mono 16-bit PCM from one rate to another using a windowed-sinc (Lanczos)
+    /// kernel. Returns the input unchanged when the rates already match.
+    ///
+    /// Deliberately not linear interpolation: the common case is <i>downsampling</i> (48/44.1 kHz
+    /// down to the model's 24 kHz), where linear interpolation folds the discarded high frequencies
+    /// back into the audible range as aliasing. The reference clip is what the voice is cloned from,
+    /// so that distortion would be inherited by every synthesized sentence. The kernel here doubles
+    /// as the anti-alias low-pass.</summary>
+    /// <param name="samples">Mono 16-bit PCM samples.</param>
+    /// <param name="sourceSampleRate">The rate <paramref name="samples"/> is currently at.</param>
+    /// <param name="targetSampleRate">The rate to convert to.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A sample rate is not positive.</exception>
+    public static short[] Resample(ReadOnlySpan<short> samples, int sourceSampleRate, int targetSampleRate)
+    {
+        if (sourceSampleRate <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sourceSampleRate), sourceSampleRate,
+                "Sample rate must be positive.");
+        }
+
+        if (targetSampleRate <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(targetSampleRate), targetSampleRate,
+                "Sample rate must be positive.");
+        }
+
+        if (sourceSampleRate == targetSampleRate || samples.Length == 0)
+        {
+            return samples.ToArray();
+        }
+
+        var ratio = (double)targetSampleRate / sourceSampleRate;
+        var outLength = Math.Max(1, (int)Math.Round(samples.Length * ratio));
+        var result = new short[outLength];
+
+        // Downsampling drops the cutoff to the target's Nyquist; upsampling keeps the source's.
+        var cutoff = Math.Min(1.0, ratio);
+        var halfWidth = ResampleLobes / cutoff;
+
+        for (var i = 0; i < outLength; i++)
+        {
+            var center = i / ratio;
+            var first = (int)Math.Ceiling(center - halfWidth);
+            var last = (int)Math.Floor(center + halfWidth);
+
+            double sum = 0, norm = 0;
+            for (var n = first; n <= last; n++)
+            {
+                var x = center - n;
+                var coeff = Sinc(cutoff * x) * Sinc(x / halfWidth); // sinc kernel * Lanczos window
+
+                // Clamp at the edges: repeating the first/last sample beats fading into silence.
+                var index = n < 0 ? 0 : n >= samples.Length ? samples.Length - 1 : n;
+                sum += samples[index] * coeff;
+                norm += coeff;
+            }
+
+            // Normalising by the kernel sum keeps the gain correct, including at the clamped edges.
+            var value = norm != 0 ? sum / norm : 0;
+            result[i] = (short)Math.Clamp(Math.Round(value), short.MinValue, short.MaxValue);
+        }
+
+        return result;
+    }
+
+    /// <summary>Normalised sinc: sin(pi*x) / (pi*x), and 1 at x = 0.</summary>
+    private static double Sinc(double x)
+    {
+        if (Math.Abs(x) < 1e-9)
+        {
+            return 1.0;
+        }
+
+        var piX = Math.PI * x;
+        return Math.Sin(piX) / piX;
     }
 
     /// <summary>Encodes 16-bit PCM mono samples as an in-memory WAV file.</summary>

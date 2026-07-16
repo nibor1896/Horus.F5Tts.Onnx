@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `WavAudio.ReadPcm16Resampled(path, targetRate)` and `WavAudio.Resample(samples, from, to)` — load a
+  reference clip at **any** sample rate and convert it to the model's 24 kHz, still with no extra
+  dependency. Previously the caller had to convert the file beforehand (with ffmpeg or similar), which
+  was the sharpest edge in getting started. Uses a windowed-sinc (Lanczos) kernel that doubles as the
+  anti-alias low-pass rather than linear interpolation: the common case is *downsampling* 44.1/48 kHz
+  to 24 kHz, where linear interpolation folds the discarded high frequencies back as audible aliasing
+  — and the reference clip is what the voice is cloned from, so that distortion would be inherited by
+  every synthesized sentence. `WavAudio.ReadPcm16` is unchanged and still returns the file untouched.
 - A unit-test suite covering the model-free code paths — WAV round-trip and header/stereo/16-bit
   handling, `vocab.txt` loading (LF/CRLF, trailing newline), `CharTokenizer`, the target-duration
   maths, and the determinism of the seeded diffusion noise. It needs no model files, so CI runs it
