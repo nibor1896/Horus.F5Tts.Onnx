@@ -16,6 +16,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Horus.F5Tts.Onnx\Horus.F5Tts.Onnx.csproj" />
+    <!-- The library only references the ONNX Runtime *managed* API on purpose, so every consumer
+         picks its own native runtime — and this test project is a consumer like any other. Without
+         this the model-backed tests pick up whatever native runtime happens to be around, which can
+         be too old for the models' opset. -->
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.1" />
   </ItemGroup>
 
 </Project>
