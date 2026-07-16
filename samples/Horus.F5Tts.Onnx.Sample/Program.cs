@@ -67,8 +67,11 @@ if (args.Length > 5)
 Console.WriteLine($"Synthesizing: \"{args[3]}\"");
 Console.WriteLine("  (CPU/GPU-bound and silent until done — on CPU a large model takes tens of seconds)");
 
+// SynthesizeLong rather than Synthesize: text that fits in one pass is handed straight to Synthesize,
+// so nothing changes for a short sentence — but a paragraph gets chunked and cross-faded instead of
+// coming out degraded. There is no reason for a sample to demonstrate the fragile call.
 var sw = Stopwatch.StartNew();
-var result = model.Synthesize(referenceAudio, referenceText: args[2], text: args[3], options);
+var result = model.SynthesizeLong(referenceAudio, referenceText: args[2], text: args[3], options);
 sw.Stop();
 
 File.WriteAllBytes(args[4], result.ToWav());
