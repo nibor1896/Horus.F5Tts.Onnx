@@ -72,6 +72,34 @@ public class ModelBackedTests : IClassFixture<ModelFixture>
     }
 
     [ModelFact]
+    public async Task A_queued_request_can_be_cancelled_while_waiting_for_its_turn()
+    {
+        // The whole point of serializing with a semaphore instead of a lock. The second call is stuck
+        // behind the first; cancelling it must take effect straight away rather than after the first
+        // one finally finishes. With a lock the waiting thread could not observe the token at all.
+        var manySteps = new F5TtsOptions { NfeSteps = 32 };
+        using var blockerCts = new CancellationTokenSource();
+        using var queuedCts = new CancellationTokenSource();
+
+        var blocker = _fixture.Model.SynthesizeAsync(Reference(), RefText, GenText, manySteps, blockerCts.Token);
+        await Task.Delay(250); // give the blocker time to take the gate
+        var queued = _fixture.Model.SynthesizeAsync(Reference(), RefText, GenText, manySteps, queuedCts.Token);
+
+        queuedCts.Cancel();
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => queued);
+        sw.Stop();
+
+        // Generous bound: the blocker needs many seconds, so returning this quickly proves the queued
+        // call did not sit and wait for it.
+        Assert.True(sw.ElapsedMilliseconds < 5000,
+            $"cancelling a queued request took {sw.ElapsedMilliseconds} ms — it waited for the one in front");
+
+        blockerCts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => blocker);
+    }
+
+    [ModelFact]
     public void The_same_seed_reproduces_identical_audio()
     {
         // The end-to-end version of the promise F5TtsOptions.Seed makes in its own docs. The unit

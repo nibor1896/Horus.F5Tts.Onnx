@@ -37,6 +37,13 @@ All notable changes to this project are documented here. The format is based on
   package as the license requires. The SPDX `PackageLicenseExpression` is unchanged.
 
 ### Changed
+- Synthesis is serialized with a `SemaphoreSlim` instead of a `lock`. Calls against one instance are
+  still queued rather than parallelised: ONNX Runtime does not document whether `Run` may be called
+  concurrently on a single session, and the workload is compute-bound anyway — parallel calls would
+  share one device and buy contention, not throughput. What changes is the *waiting*: a queued caller
+  no longer blocks a thread-pool thread, and can now be **cancelled while it waits**. With a `lock`
+  the waiting thread could not observe the token at all, so a queued `SynthesizeAsync` was stuck until
+  the call in front of it finished.
 - The console sample takes an optional `[seed]` argument and prints a fingerprint of the generated
   samples. With a seed the fingerprint is stable across runs, machines and execution providers, so
   "did this change alter the audio?" becomes a yes/no comparison instead of a listening test. It also

@@ -28,7 +28,14 @@ public sealed class F5TtsModel : IDisposable
     private readonly InferenceSession _decode;
     private readonly IReadOnlyDictionary<string, int> _vocab;
     private readonly CharTokenizer _defaultTokenizer;
-    private readonly object _sync = new();
+    /// <summary>Serializes the model work. Deliberately a semaphore rather than a <c>lock</c>: the
+    /// async path can then queue without blocking a thread-pool thread, and a caller can still be
+    /// cancelled while it waits its turn.
+    ///
+    /// Why serialize at all: ONNX Runtime does not document whether <c>Run</c> may be called
+    /// concurrently on one session, and this workload is compute-bound anyway — parallel calls would
+    /// share the same device and add no throughput, only contention.</summary>
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     private F5TtsModel(InferenceSession preprocess, InferenceSession transformer, InferenceSession decode,
         IReadOnlyDictionary<string, int> vocab)
@@ -98,30 +105,62 @@ public sealed class F5TtsModel : IDisposable
     /// <param name="options">Optional synthesis options (NFE steps, speed, custom tokenizer,
     /// text normalizer).</param>
     public F5TtsResult Synthesize(short[] referenceAudio, string referenceText, string text, F5TtsOptions? options = null)
-        => SynthesizeCore(referenceAudio, referenceText, text, options, CancellationToken.None);
+    {
+        var plan = Prepare(referenceAudio, referenceText, text, options);
+
+        _gate.Wait();
+        try
+        {
+            return Execute(plan, CancellationToken.None);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     /// <summary>Synthesizes on a background thread, so a UI or request thread is not blocked by the
     /// CPU/GPU-bound work. Identical to <see cref="Synthesize"/> in every other respect — same audio
     /// for the same inputs.</summary>
-    /// <remarks>Cancellation is checked before the pipeline starts and <b>between denoising steps</b>:
-    /// the library drives that loop itself, so a request can be abandoned part-way instead of only
-    /// before it begins. One step is the granularity — an ONNX Runtime call already in flight cannot
-    /// be interrupted, so cancelling takes effect within roughly one step, which is on the order of a
-    /// second for a large model.</remarks>
+    /// <remarks>Cancellation is checked while queued, before the pipeline starts, and <b>between
+    /// denoising steps</b>: the library drives that loop itself, so a request can be abandoned
+    /// part-way instead of only before it begins. One step is the granularity — an ONNX Runtime call
+    /// already in flight cannot be interrupted, so cancelling takes effect within roughly one step,
+    /// which is on the order of a second for a large model.
+    ///
+    /// Calls against one instance are serialized. Waiting for your turn costs no thread-pool thread
+    /// and does not delay cancellation.</remarks>
     /// <param name="referenceAudio">The reference voice, as 24 kHz mono 16-bit PCM.</param>
     /// <param name="referenceText">The transcript of <paramref name="referenceAudio"/>.</param>
     /// <param name="text">The text to speak.</param>
     /// <param name="options">Optional synthesis options.</param>
     /// <param name="cancellationToken">Cancels the synthesis; see the remarks for the granularity.</param>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
-    public Task<F5TtsResult> SynthesizeAsync(short[] referenceAudio, string referenceText, string text,
+    public async Task<F5TtsResult> SynthesizeAsync(short[] referenceAudio, string referenceText, string text,
         F5TtsOptions? options = null, CancellationToken cancellationToken = default)
-        => Task.Run(
-            () => SynthesizeCore(referenceAudio, referenceText, text, options, cancellationToken),
-            cancellationToken);
+    {
+        var plan = Prepare(referenceAudio, referenceText, text, options);
 
-    private F5TtsResult SynthesizeCore(short[] referenceAudio, string referenceText, string text,
-        F5TtsOptions? options, CancellationToken cancellationToken)
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(() => Execute(plan, cancellationToken), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>The prepared inputs for one synthesis, so the gate only has to cover the model work.</summary>
+    private readonly record struct Plan(
+        short[] ReferenceAudio, int[] TextIds, long MaxDuration, int NfeSteps, int? Seed);
+
+    /// <summary>Everything that can be done before taking the gate. Validation, normalization and
+    /// tokenization are cheap and touch no shared state, so they must not hold up another caller —
+    /// and a bad argument should be rejected immediately rather than after queuing.</summary>
+    private Plan Prepare(short[] referenceAudio, string referenceText, string text, F5TtsOptions? options)
     {
         ArgumentNullException.ThrowIfNull(referenceAudio);
         ArgumentNullException.ThrowIfNull(referenceText);
@@ -136,12 +175,15 @@ public sealed class F5TtsModel : IDisposable
         var maxDuration = ComputeMaxDuration(
             referenceAudio.Length, refPart, genText, options.Speed, options.TailPaddingFrames);
 
-        lock (_sync)
-        {
-            var samples = RunPipeline(
-                referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed, cancellationToken);
-            return new F5TtsResult(samples, SampleRate);
-        }
+        return new Plan(referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed);
+    }
+
+    /// <summary>The model work itself. Only ever runs while the gate is held.</summary>
+    private F5TtsResult Execute(Plan plan, CancellationToken cancellationToken)
+    {
+        var samples = RunPipeline(
+            plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps, plan.Seed, cancellationToken);
+        return new F5TtsResult(samples, SampleRate);
     }
 
     /// <summary>Appends a trailing space when the reference text ends on a single-byte character —
@@ -312,5 +354,6 @@ public sealed class F5TtsModel : IDisposable
         _preprocess.Dispose();
         _transformer.Dispose();
         _decode.Dispose();
+        _gate.Dispose();
     }
 }
