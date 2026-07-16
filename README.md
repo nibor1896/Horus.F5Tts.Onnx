@@ -161,12 +161,22 @@ Everything else — the pipeline, the options, the 24 kHz audio format — is id
   the file untouched if you'd rather handle the rate yourself.
 - **NFE steps** (`F5TtsOptions.NfeSteps`, default 32) must match the value the transformer was
   exported with.
-- **Half precision (FP16)** works out of the box: the library reads the precision off the model and
-  marshals the right tensors, so an FP16 export needs no different code and no extra setting. It is
-  worth seeking out — measured on DirectML with the same reference and text, an FP16 export ran a
-  denoising step in **60 ms against 617 ms** for the F32 one, and the model is half the size
-  (630 MB vs 1.32 GB). The same seed produces *different* audio on FP16 than on F32: fewer bits,
-  different numbers. Within one precision a seed reproduces exactly, as documented.
+- **Half precision (FP16)** works out of the box — the library reads the precision off the model and
+  marshals the right tensors, so an FP16 export needs no different code and no extra setting. But
+  **match it to your execution provider**, because it cuts both ways (measured, same reference and
+  text):
+
+  | | F32 | FP16 |
+  |---|---|---|
+  | **GPU** (DirectML) | 617 ms / step | **60 ms / step** |
+  | **CPU** | 19.6 s total | **40.1 s total** |
+
+  On a GPU it is the single biggest win available, and the model is half the size (630 MB vs
+  1.32 GB). On the CPU provider it is a **loss**: there is no native half arithmetic there, so ONNX
+  Runtime emulates it and pays the conversions for nothing. **FP16 for GPU, F32 for CPU.**
+
+  The same seed produces *different* audio on FP16 than on F32 — fewer bits, different numbers.
+  Within one precision it reproduces exactly, as documented.
 
 ## Credits & license
 

@@ -12,9 +12,12 @@ All notable changes to this project are documented here. The format is based on
   decode expect), so the library simply marshals the matching tensors. No new option, no code change
   for consumers: the public API still takes and returns `short[]`.
 
-  This is worth having. Measured on DirectML with the same reference clip and text, one denoising step
-  took **60 ms on the FP16 export against 617 ms on F32** — and the model is half the size (630 MB vs
-  1.32 GB). Whole-synthesis time went from 20.6 s to 3.2 s.
+  Match the precision to the execution provider, because it cuts both ways (measured, same reference
+  and text). On **GPU** (DirectML) a denoising step took **60 ms on FP16 against 617 ms on F32** —
+  whole synthesis 3.2 s instead of 20.6 s — and the model is half the size (630 MB vs 1.32 GB). On the
+  **CPU** provider the same export is a *loss*: **40.1 s against 19.6 s**, because there is no native
+  half arithmetic there and ONNX Runtime emulates it, paying the conversions for nothing. FP16 for GPU,
+  F32 for CPU — the README says so plainly rather than quoting only the flattering number.
 
   Note that the same seed produces *different* audio on an FP16 export than on an F32 one: fewer bits,
   different numbers. Within one precision a seed still reproduces exactly, and both precisions share a
