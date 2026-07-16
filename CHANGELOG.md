@@ -40,7 +40,9 @@ All notable changes to this project are documented here. The format is based on
 - The console sample takes an optional `[seed]` argument and prints a fingerprint of the generated
   samples. With a seed the fingerprint is stable across runs, machines and execution providers, so
   "did this change alter the audio?" becomes a yes/no comparison instead of a listening test. It also
-  demonstrates `F5TtsOptions.Seed`, which the sample did not show before.
+  demonstrates `F5TtsOptions.Seed`, which the sample did not show before. It now also reports progress
+  while loading and synthesizing: both are slow and silent, so a first-time user watching nothing
+  happen for the better part of a minute reasonably concludes it has hung.
 - README framing: the library is now presented purely as a standalone, general-purpose F5-TTS
   runner (removed the project-origin subline).
 

@@ -33,6 +33,11 @@ if (args.Length < 5)
 
 var modelDir = args[0];
 
+// Progress matters here: loading is a multi-hundred-megabyte read and synthesis is silent
+// compute, so without these lines the sample looks hung for the better part of a minute.
+Console.WriteLine("Loading models ...");
+var swLoad = Stopwatch.StartNew();
+
 using var model = F5TtsModel.Load(
     Path.Combine(modelDir, "F5_Preprocess.onnx"),
     Path.Combine(modelDir, "F5_Transformer.onnx"),
@@ -40,6 +45,9 @@ using var model = F5TtsModel.Load(
     Path.Combine(modelDir, "vocab.txt"));
 // To use a GPU instead of CPU, add the matching runtime package and pass e.g.:
 //   configureSession: o => o.AppendExecutionProvider_DML(0)
+
+swLoad.Stop();
+Console.WriteLine($"  loaded in {swLoad.ElapsedMilliseconds} ms");
 
 // Any sample rate works: the clip is converted to whatever the model expects (24 kHz).
 var referenceAudio = WavAudio.ReadPcm16Resampled(args[1], model.OutputSampleRate);
@@ -55,6 +63,9 @@ if (args.Length > 5)
 
     options.Seed = seed;
 }
+
+Console.WriteLine($"Synthesizing: \"{args[3]}\"");
+Console.WriteLine("  (CPU/GPU-bound and silent until done — on CPU a large model takes tens of seconds)");
 
 var sw = Stopwatch.StartNew();
 var result = model.Synthesize(referenceAudio, referenceText: args[2], text: args[3], options);
