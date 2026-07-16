@@ -161,6 +161,153 @@ public sealed class F5TtsModel : IDisposable
         }
     }
 
+    /// <summary>Default overlap blended between consecutive chunks in <see cref="SynthesizeLong"/>.
+    /// Matches the reference F5-TTS implementation.</summary>
+    public const double DefaultCrossFadeSeconds = 0.15;
+
+    /// <summary>Synthesizes text of any length by splitting it at sentence boundaries, synthesizing
+    /// each piece and cross-fading the results together.
+    ///
+    /// Use this instead of <see cref="Synthesize"/> when the text may be long. A single pass generates
+    /// the reference clip <i>and</i> the new speech together, and quality degrades once that combined
+    /// length runs much past ~22 seconds — so the usable text budget depends on how much of the pass
+    /// the reference clip already consumes. <see cref="TextChunker"/> works that budget out; short text
+    /// stays a single pass and costs nothing extra.</summary>
+    /// <param name="referenceAudio">The reference voice, as 24 kHz mono 16-bit PCM.</param>
+    /// <param name="referenceText">The transcript of <paramref name="referenceAudio"/>.</param>
+    /// <param name="text">The text to speak; may span many sentences.</param>
+    /// <param name="options">Optional synthesis options, applied to every chunk. A <see
+    /// cref="F5TtsOptions.Seed"/> keeps the whole result reproducible: each chunk derives its own seed
+    /// from it, so the pieces get different noise — as they would within one pass — while the output as
+    /// a whole repeats exactly.</param>
+    /// <param name="crossFadeSeconds">Overlap blended between consecutive chunks. Zero butt-joins them,
+    /// which tends to click.</param>
+    public F5TtsResult SynthesizeLong(short[] referenceAudio, string referenceText, string text,
+        F5TtsOptions? options = null, double crossFadeSeconds = DefaultCrossFadeSeconds)
+    {
+        ArgumentNullException.ThrowIfNull(referenceAudio);
+        ArgumentNullException.ThrowIfNull(referenceText);
+        ArgumentNullException.ThrowIfNull(text);
+        options ??= new F5TtsOptions();
+
+        var chunks = ChunkFor(referenceAudio, referenceText, text, options);
+        if (chunks.Count <= 1)
+        {
+            return Synthesize(referenceAudio, referenceText, text, options);
+        }
+
+        var segments = new List<short[]>(chunks.Count);
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            segments.Add(Synthesize(referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i)).Samples);
+        }
+
+        return new F5TtsResult(CrossFade(segments, SampleRate, crossFadeSeconds), SampleRate);
+    }
+
+    /// <summary>Background-thread counterpart of <see cref="SynthesizeLong"/>. Cancellation is honoured
+    /// between chunks as well as inside each one, so a long job stops promptly.</summary>
+    public async Task<F5TtsResult> SynthesizeLongAsync(short[] referenceAudio, string referenceText, string text,
+        F5TtsOptions? options = null, double crossFadeSeconds = DefaultCrossFadeSeconds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(referenceAudio);
+        ArgumentNullException.ThrowIfNull(referenceText);
+        ArgumentNullException.ThrowIfNull(text);
+        options ??= new F5TtsOptions();
+
+        var chunks = ChunkFor(referenceAudio, referenceText, text, options);
+        if (chunks.Count <= 1)
+        {
+            return await SynthesizeAsync(referenceAudio, referenceText, text, options, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var segments = new List<short[]>(chunks.Count);
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            var result = await SynthesizeAsync(
+                referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i), cancellationToken)
+                .ConfigureAwait(false);
+            segments.Add(result.Samples);
+        }
+
+        return new F5TtsResult(CrossFade(segments, SampleRate, crossFadeSeconds), SampleRate);
+    }
+
+    private IReadOnlyList<string> ChunkFor(short[] referenceAudio, string referenceText, string text,
+        F5TtsOptions options)
+    {
+        var referenceSeconds = referenceAudio.Length / (double)SampleRate;
+        return TextChunker.Split(text, TextChunker.MaxBytesFor(referenceText, referenceSeconds, options.Speed));
+    }
+
+    /// <summary>Gives each chunk its own seed derived from the caller's. Reusing one seed verbatim would
+    /// start every sentence from identical noise; a single long pass would not do that, so neither does
+    /// this. Unseeded input is left alone — it already varies per call.</summary>
+    private static F5TtsOptions OptionsForChunk(F5TtsOptions options, int index)
+    {
+        if (options.Seed is null || index == 0)
+        {
+            return options;
+        }
+
+        return new F5TtsOptions
+        {
+            NfeSteps = options.NfeSteps,
+            Speed = options.Speed,
+            Tokenizer = options.Tokenizer,
+            TextNormalizer = options.TextNormalizer,
+            Seed = unchecked(options.Seed.Value + index),
+            TailPaddingFrames = options.TailPaddingFrames,
+        };
+    }
+
+    /// <summary>Joins segments, blending <paramref name="crossFadeSeconds"/> of overlap between each
+    /// pair with a linear ramp. Butt-joining two independently generated waveforms leaves a
+    /// discontinuity that is audible as a click, which is why the overlap exists at all.</summary>
+    internal static short[] CrossFade(IReadOnlyList<short[]> segments, int sampleRate, double crossFadeSeconds)
+    {
+        if (segments.Count == 0)
+        {
+            return [];
+        }
+
+        var fadeSamples = crossFadeSeconds <= 0 ? 0 : (int)(crossFadeSeconds * sampleRate);
+        var result = segments[0];
+
+        for (var s = 1; s < segments.Count; s++)
+        {
+            var next = segments[s];
+            var overlap = Math.Min(fadeSamples, Math.Min(result.Length, next.Length));
+
+            if (overlap <= 0)
+            {
+                var joined = new short[result.Length + next.Length];
+                result.CopyTo(joined, 0);
+                next.CopyTo(joined, result.Length);
+                result = joined;
+                continue;
+            }
+
+            var combined = new short[result.Length + next.Length - overlap];
+            Array.Copy(result, 0, combined, 0, result.Length - overlap);
+
+            for (var i = 0; i < overlap; i++)
+            {
+                var t = (i + 1.0) / (overlap + 1.0);
+                var blended = result[result.Length - overlap + i] * (1 - t) + next[i] * t;
+                combined[result.Length - overlap + i] =
+                    (short)Math.Clamp(Math.Round(blended), short.MinValue, short.MaxValue);
+            }
+
+            Array.Copy(next, overlap, combined, result.Length, next.Length - overlap);
+            result = combined;
+        }
+
+        return result;
+    }
+
     /// <summary>The prepared inputs for one synthesis, so the gate only has to cover the model work.</summary>
     private readonly record struct Plan(
         short[] ReferenceAudio, int[] TextIds, long MaxDuration, int NfeSteps, int? Seed);

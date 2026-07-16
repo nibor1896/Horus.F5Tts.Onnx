@@ -115,6 +115,27 @@ while (output.PlaybackState == PlaybackState.Playing) Thread.Sleep(100);
 
 Or feed `result.Samples` straight into your own audio pipeline — it's plain 24 kHz mono PCM.
 
+## Long text
+
+A single pass generates the reference clip **and** the new speech together, and quality falls apart
+once that combined length runs much past ~22 seconds. The usable text budget is therefore not a fixed
+number — it depends on how much of the pass your reference clip already eats.
+
+`SynthesizeLong` deals with that: it works the budget out, splits at sentence boundaries into pieces
+that fit, synthesizes each and cross-fades them together.
+
+```csharp
+var result = model.SynthesizeLong(referenceAudio, referenceText, wholeParagraph);
+// or: await model.SynthesizeLongAsync(referenceAudio, referenceText, wholeParagraph, cancellationToken: token);
+```
+
+Text that already fits stays a single pass, so there is nothing to lose by reaching for it by default.
+A `Seed` still makes the whole result reproducible: each chunk derives its own seed from it, so the
+pieces get different noise the way they would inside one pass, and the output as a whole repeats
+exactly.
+
+`TextChunker` is public if you would rather split the text yourself.
+
 ## Languages & voices
 
 Two independent things decide how the output sounds:

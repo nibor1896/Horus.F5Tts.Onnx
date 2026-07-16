@@ -7,6 +7,16 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `F5TtsModel.SynthesizeLong(...)` / `SynthesizeLongAsync(...)` and the public `TextChunker` — speak text
+  of any length. A single pass generates the reference clip *and* the new speech together and degrades
+  once that combined length runs much past ~22 s, so the usable budget depends on how much of the pass
+  the reference already eats. `TextChunker.MaxBytesFor` derives it from the reference's own speaking
+  rate, `Split` breaks at sentence boundaries (never mid-sentence: a clipped sentence is worse than an
+  over-long one), and the segments are cross-faded rather than butt-joined, which would click. Text that
+  already fits stays a single pass, so there is no cost to using it by default. Both the chunk sizing and
+  the splitting rules mirror the reference F5-TTS implementation, so a given text chunks the same way
+  here as it does in Python. With a seed the whole result stays reproducible — each chunk derives its own
+  seed, so the pieces get different noise the way they would inside one pass.
 - **Half-precision (FP16) exports are supported.** The precision is read off the model at load time —
   an FP16 export is self-consistent (its preprocess already emits `Float16`, which the transformer and
   decode expect), so the library simply marshals the matching tensors. No new option, no code change
