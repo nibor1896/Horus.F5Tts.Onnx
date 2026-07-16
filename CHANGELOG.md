@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- A unit-test suite covering the model-free code paths — WAV round-trip and header/stereo/16-bit
+  handling, `vocab.txt` loading (LF/CRLF, trailing newline), `CharTokenizer`, the target-duration
+  maths, and the determinism of the seeded diffusion noise. It needs no model files, so CI runs it
+  on every push.
 - The `LICENSE` file now ships inside the NuGet package, so the MIT copyright notice — and the note
   that the F5-TTS model weights carry their own, partly non-commercial licenses — travels with the
   package as the license requires. The SPDX `PackageLicenseExpression` is unchanged.

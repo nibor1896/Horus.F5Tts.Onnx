@@ -107,29 +107,47 @@ public sealed class F5TtsModel : IDisposable
         var genText = options.TextNormalizer is null ? text : options.TextNormalizer(text);
         var tokenizer = options.Tokenizer ?? _defaultTokenizer;
 
-        // A trailing space is needed when the reference text ends on a single-byte character,
-        // otherwise the last reference word fuses with the first generated one.
-        var refPart = referenceText;
-        if (refPart.Length > 0 && Encoding.UTF8.GetByteCount(refPart[^1].ToString()) == 1 && !refPart.EndsWith(' '))
-        {
-            refPart += " ";
-        }
-
+        var refPart = NormalizeReferenceText(referenceText);
         var textIds = tokenizer.Encode(refPart + genText);
-
-        var refTextLen = Math.Max(1, Encoding.UTF8.GetByteCount(refPart));
-        var genTextLen = Encoding.UTF8.GetByteCount(genText);
-        var refAudioLen = referenceAudio.Length / HopLength + 1;
-        var speed = options.Speed <= 0 ? 1.0 : options.Speed;
-        var maxDuration = refAudioLen
-            + (long)((double)refAudioLen / refTextLen * genTextLen / speed)
-            + Math.Max(0, options.TailPaddingFrames);
+        var maxDuration = ComputeMaxDuration(
+            referenceAudio.Length, refPart, genText, options.Speed, options.TailPaddingFrames);
 
         lock (_sync)
         {
             var samples = RunPipeline(referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed);
             return new F5TtsResult(samples, SampleRate);
         }
+    }
+
+    /// <summary>Appends a trailing space when the reference text ends on a single-byte character —
+    /// without it the last reference word fuses with the first generated one. Multi-byte endings
+    /// (CJK punctuation, umlauts, …) are left alone, as is text that already ends on a space.</summary>
+    internal static string NormalizeReferenceText(string referenceText)
+    {
+        if (referenceText.Length > 0
+            && Encoding.UTF8.GetByteCount(referenceText[^1].ToString()) == 1
+            && !referenceText.EndsWith(' '))
+        {
+            return referenceText + " ";
+        }
+
+        return referenceText;
+    }
+
+    /// <summary>Target mel length the transformer generates into: the reference audio's own frame
+    /// count, plus that same duration-per-text-byte scaled onto the generation text and divided by
+    /// the speaking rate, plus the tail pad. Non-positive speeds fall back to 1.0 and a negative tail
+    /// pad is clamped to 0.</summary>
+    internal static long ComputeMaxDuration(int referenceSampleCount, string referenceTextPart,
+        string generationText, float speed, int tailPaddingFrames)
+    {
+        var refTextLen = Math.Max(1, Encoding.UTF8.GetByteCount(referenceTextPart));
+        var genTextLen = Encoding.UTF8.GetByteCount(generationText);
+        var refAudioLen = referenceSampleCount / HopLength + 1;
+        var rate = speed <= 0 ? 1.0 : speed;
+        return refAudioLen
+            + (long)((double)refAudioLen / refTextLen * genTextLen / rate)
+            + Math.Max(0, tailPaddingFrames);
     }
 
     private short[] RunPipeline(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed)
@@ -204,7 +222,7 @@ public sealed class F5TtsModel : IDisposable
     /// reproduces bit-for-bit across platforms and languages, and avoids the occasional unlucky
     /// <see cref="Random"/> draw whose sequence tail can destabilize the denoiser on some execution
     /// providers.</summary>
-    private static void FillGaussian(DenseTensor<float> tensor, int seed)
+    internal static void FillGaussian(DenseTensor<float> tensor, int seed)
     {
         var state = (ulong)(uint)seed;
         const ulong gamma = 0x9E3779B97F4A7C15UL;
