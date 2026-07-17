@@ -84,6 +84,19 @@ Cancellation is honoured **between denoising steps**, so a long request can be a
 instead of only before it starts (a step is the granularity — a call already inside ONNX Runtime
 can't be interrupted).
 
+Synthesis is slow and silent, so for a progress bar set `F5TtsOptions.Progress`:
+
+```csharp
+var options = new F5TtsOptions
+{
+    Progress = new Progress<F5TtsProgress>(p => bar.Value = p.Fraction),
+};
+```
+
+You get a report after every denoising step. `Fraction` spans the **whole request** — including every
+chunk when `SynthesizeLong` splits the text — so the bar runs 0→1 once instead of restarting at each
+sentence. `Chunk` / `ChunkCount` are there when you want to write "sentence 3 of 7" next to it.
+
 ## What you get back
 
 `Synthesize` returns an `F5TtsResult`:

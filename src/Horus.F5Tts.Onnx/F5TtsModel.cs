@@ -199,7 +199,8 @@ public sealed class F5TtsModel : IDisposable
         var segments = new List<short[]>(chunks.Count);
         for (var i = 0; i < chunks.Count; i++)
         {
-            segments.Add(Synthesize(referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i)).Samples);
+            segments.Add(Synthesize(
+                referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i, chunks.Count)).Samples);
         }
 
         return new F5TtsResult(CrossFade(segments, SampleRate, crossFadeSeconds), SampleRate);
@@ -227,7 +228,8 @@ public sealed class F5TtsModel : IDisposable
         for (var i = 0; i < chunks.Count; i++)
         {
             var result = await SynthesizeAsync(
-                referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i), cancellationToken)
+                referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i, chunks.Count),
+                cancellationToken)
                 .ConfigureAwait(false);
             segments.Add(result.Samples);
         }
@@ -242,12 +244,17 @@ public sealed class F5TtsModel : IDisposable
         return TextChunker.Split(text, TextChunker.MaxBytesFor(referenceText, referenceSeconds, options.Speed));
     }
 
-    /// <summary>Gives each chunk its own seed derived from the caller's. Reusing one seed verbatim would
-    /// start every sentence from identical noise; a single long pass would not do that, so neither does
-    /// this. Unseeded input is left alone — it already varies per call.</summary>
-    private static F5TtsOptions OptionsForChunk(F5TtsOptions options, int index)
+    /// <summary>Adapts one chunk's options: its own seed, and progress rewritten to say which chunk it
+    /// is.
+    ///
+    /// The seed is derived rather than reused — reusing one verbatim would start every sentence from
+    /// identical noise, which a single long pass would never do. Unseeded input is left alone, since it
+    /// already varies per call.</summary>
+    private static F5TtsOptions OptionsForChunk(F5TtsOptions options, int index, int count)
     {
-        if (options.Seed is null || index == 0)
+        var needsSeed = options.Seed is not null && index > 0;
+        var needsProgress = options.Progress is not null && count > 1;
+        if (!needsSeed && !needsProgress)
         {
             return options;
         }
@@ -258,9 +265,20 @@ public sealed class F5TtsModel : IDisposable
             Speed = options.Speed,
             Tokenizer = options.Tokenizer,
             TextNormalizer = options.TextNormalizer,
-            Seed = unchecked(options.Seed.Value + index),
+            Seed = needsSeed ? unchecked(options.Seed!.Value + index) : options.Seed,
             TailPaddingFrames = options.TailPaddingFrames,
+            Progress = needsProgress ? new ChunkProgress(options.Progress!, index, count) : options.Progress,
         };
+    }
+
+    /// <summary>Rewrites a single pass's "chunk 0 of 1" into its real position in a longer job, so the
+    /// pipeline never has to know it is one piece of several — and the caller sees one continuous
+    /// 0..1 instead of a bar that restarts at every sentence.</summary>
+    private sealed class ChunkProgress(IProgress<F5TtsProgress> inner, int chunk, int chunkCount)
+        : IProgress<F5TtsProgress>
+    {
+        public void Report(F5TtsProgress value)
+            => inner.Report(new F5TtsProgress(chunk, chunkCount, value.Step, value.StepCount));
     }
 
     /// <summary>Joins segments, blending <paramref name="crossFadeSeconds"/> of overlap between each
@@ -310,7 +328,8 @@ public sealed class F5TtsModel : IDisposable
 
     /// <summary>The prepared inputs for one synthesis, so the gate only has to cover the model work.</summary>
     private readonly record struct Plan(
-        short[] ReferenceAudio, int[] TextIds, long MaxDuration, int NfeSteps, int? Seed);
+        short[] ReferenceAudio, int[] TextIds, long MaxDuration, int NfeSteps, int? Seed,
+        IProgress<F5TtsProgress>? Progress);
 
     /// <summary>Everything that can be done before taking the gate. Validation, normalization and
     /// tokenization are cheap and touch no shared state, so they must not hold up another caller —
@@ -330,17 +349,17 @@ public sealed class F5TtsModel : IDisposable
         var maxDuration = ComputeMaxDuration(
             referenceAudio.Length, refPart, genText, options.Speed, options.TailPaddingFrames);
 
-        return new Plan(referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed);
+        return new Plan(referenceAudio, textIds, maxDuration, options.NfeSteps, options.Seed, options.Progress);
     }
 
     /// <summary>The model work itself. Only ever runs while the gate is held.</summary>
     private F5TtsResult Execute(Plan plan, CancellationToken cancellationToken)
     {
         var samples = _isFloat16
-            ? RunPipeline<Float16>(
-                plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps, plan.Seed, cancellationToken)
-            : RunPipeline<float>(
-                plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps, plan.Seed, cancellationToken);
+            ? RunPipeline<Float16>(plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps,
+                plan.Seed, plan.Progress, cancellationToken)
+            : RunPipeline<float>(plan.ReferenceAudio, plan.TextIds, plan.MaxDuration, plan.NfeSteps,
+                plan.Seed, plan.Progress, cancellationToken);
         return new F5TtsResult(samples, SampleRate);
     }
 
@@ -381,7 +400,7 @@ public sealed class F5TtsModel : IDisposable
     /// rather than two copies that could drift apart.</summary>
     /// <typeparam name="T">Must match what this export uses; see <see cref="_isFloat16"/>.</typeparam>
     private short[] RunPipeline<T>(short[] referenceAudio, int[] textIds, long maxDuration, int nfeSteps, int? seed,
-        CancellationToken cancellationToken)
+        IProgress<F5TtsProgress>? progress, CancellationToken cancellationToken)
         where T : struct
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -452,6 +471,10 @@ public sealed class F5TtsModel : IDisposable
             ]);
             x = Copy<T>(res, "denoised");
             timeStep = Copy<int>(res, "time_step");
+
+            // Always reported as chunk 0 of 1. SynthesizeLong wraps this in an adapter that rewrites
+            // it to the real chunk, so the loop stays unaware of whether it is part of a longer job.
+            progress?.Report(new F5TtsProgress(0, 1, i + 1, nfeSteps - 1));
         }
 
         cancellationToken.ThrowIfCancellationRequested();

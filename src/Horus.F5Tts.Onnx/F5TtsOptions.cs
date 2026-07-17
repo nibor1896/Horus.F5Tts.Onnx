@@ -30,6 +30,20 @@ public sealed class F5TtsOptions
     /// machines and execution providers.</summary>
     public int? Seed { get; set; }
 
+    /// <summary>Optional progress reporting. Synthesis is slow and silent — a large model can spend
+    /// tens of seconds on a single sentence — so anything with a user interface needs to show
+    /// something. Set this and you get a report after every denoising step, and across every chunk
+    /// when <see cref="F5TtsModel.SynthesizeLong"/> splits the text; see <see cref="F5TtsProgress"/>.
+    ///
+    /// It lives here rather than as a method parameter so it reaches the synchronous and asynchronous,
+    /// single and long-text entry points alike — without four new overloads, and without changing any
+    /// existing signature.
+    ///
+    /// Note that <see cref="IProgress{T}"/> marshals onto the context that created it, so reports
+    /// arrive on the UI thread. Roughly one per denoising step is cheap; do not do heavy work in the
+    /// handler.</summary>
+    public IProgress<F5TtsProgress>? Progress { get; set; }
+
     /// <summary>Extra frames of target duration appended at the end so the model doesn't clip the
     /// final phoneme — F5-TTS tends to swallow a word-final consonant (e.g. a trailing "t"). At 24 kHz
     /// with a hop of 256 each frame is ~10.7 ms; the default (12 ≈ 0.13 s) is a small, safe pad. Set

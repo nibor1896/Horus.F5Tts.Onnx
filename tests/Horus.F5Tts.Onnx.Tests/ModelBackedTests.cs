@@ -99,6 +99,62 @@ public class ModelBackedTests : IClassFixture<ModelFixture>
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => blocker);
     }
 
+    /// <summary>Collects reports on the calling thread. Deliberately not <see cref="Progress{T}"/>:
+    /// that one marshals through the SynchronizationContext, so in a test the reports would land after
+    /// the assertions and the whole thing would pass or fail on timing.</summary>
+    private sealed class CollectingProgress : IProgress<F5TtsProgress>
+    {
+        public List<F5TtsProgress> Reports { get; } = [];
+
+        public void Report(F5TtsProgress value) => Reports.Add(value);
+    }
+
+    [ModelFact]
+    public void Progress_is_reported_for_every_step_and_reaches_one()
+    {
+        var sink = new CollectingProgress();
+        var options = Fast(42);
+        options.Progress = sink;
+
+        _fixture.Model.Synthesize(Reference(), RefText, GenText, options);
+
+        // NFE 4 means 3 transformer runs, so 3 reports.
+        Assert.Equal(3, sink.Reports.Count);
+        Assert.All(sink.Reports, r => Assert.Equal(1, r.ChunkCount));
+        Assert.All(sink.Reports, r => Assert.Equal(3, r.StepCount));
+        Assert.Equal(1.0, sink.Reports[^1].Fraction, 6);
+    }
+
+    [ModelFact]
+    public void Progress_only_moves_forward()
+    {
+        var sink = new CollectingProgress();
+        var options = Fast(42);
+        options.Progress = sink;
+
+        _fixture.Model.Synthesize(Reference(), RefText, GenText, options);
+
+        for (var i = 1; i < sink.Reports.Count; i++)
+        {
+            Assert.True(sink.Reports[i].Fraction > sink.Reports[i - 1].Fraction,
+                $"report {i} went backwards: {sink.Reports[i - 1].Fraction} -> {sink.Reports[i].Fraction}");
+        }
+    }
+
+    [ModelFact]
+    public void Reporting_progress_does_not_change_the_audio()
+    {
+        // Observing must not perturb. If wiring the reports through the pipeline altered a single
+        // sample, the whole feature would be a bug.
+        var withoutProgress = _fixture.Model.Synthesize(Reference(), RefText, GenText, Fast(4242));
+
+        var options = Fast(4242);
+        options.Progress = new CollectingProgress();
+        var withProgress = _fixture.Model.Synthesize(Reference(), RefText, GenText, options);
+
+        Assert.Equal(withoutProgress.Samples, withProgress.Samples);
+    }
+
     [ModelFact]
     public void The_same_seed_reproduces_identical_audio()
     {

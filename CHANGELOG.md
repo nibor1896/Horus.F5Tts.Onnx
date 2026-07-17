@@ -6,6 +6,18 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+- `F5TtsOptions.Progress` (`IProgress<F5TtsProgress>`) — synthesis is slow and silent (tens of seconds
+  for one sentence on CPU), so anything with a user interface had nothing to show but a spinner. A
+  report now arrives after every denoising step, and `F5TtsProgress.Fraction` spans the **whole
+  request** — chunks included, so a bar runs 0→1 once instead of restarting at every sentence, while
+  `Chunk`/`ChunkCount` remain available for a "sentence 3 of 7" label.
+
+  It lives on the options rather than as a method parameter deliberately: adding a parameter to
+  `SynthesizeAsync` or `SynthesizeLongAsync` would be binary-breaking for anyone already compiled
+  against 0.2.0, and four new overloads to avoid that would be noise. A new property on an existing
+  class breaks nobody and reaches all four entry points at once.
+
 ## [0.2.0] - 2026-07-16
 
 ### Added
