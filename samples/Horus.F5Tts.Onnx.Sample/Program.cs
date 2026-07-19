@@ -65,15 +65,24 @@ for (var i = 5; i < args.Length; i++)
     {
         streamMode = true;
     }
+    else if (string.Equals(args[i], "norm", StringComparison.OrdinalIgnoreCase))
+    {
+        options.TextNormalizer = GermanTextNormalizer.Normalize;   // spell out numbers, %, €, z.B. …
+    }
     else if (int.TryParse(args[i], out var seed))
     {
         options.Seed = seed;
     }
     else
     {
-        Console.Error.WriteLine($"Unrecognized argument '{args[i]}' (expected a seed or 'stream').");
+        Console.Error.WriteLine($"Unrecognized argument '{args[i]}' (expected a seed, 'stream' or 'norm').");
         return 1;
     }
+}
+
+if (options.TextNormalizer is not null)
+{
+    Console.WriteLine($"Normalisiert -> \"{options.TextNormalizer(args[3])}\"");
 }
 
 Console.WriteLine($"Synthesizing: \"{args[3]}\"{(streamMode ? "  [streaming]" : "")}");

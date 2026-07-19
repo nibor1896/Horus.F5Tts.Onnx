@@ -205,9 +205,19 @@ The only language-specific pieces are:
 - **The tokenizer.** The default `CharTokenizer` (character-level) is correct for Latin-script
   languages — German, English, French, Spanish, …. Chinese/Japanese need pinyin/jieba segmentation:
   implement `IF5Tokenizer` and pass it via `F5TtsOptions.Tokenizer`.
-- **The text normalizer** (optional). `F5TtsOptions.TextNormalizer` spells out symbols the model
-  would otherwise skip (`%`, `°C`, digits, …); what to spell out is language-specific, and the
-  library applies whatever `Func<string, string>` you supply.
+- **The text normalizer** (optional). `F5TtsOptions.TextNormalizer` spells out what the model would
+  otherwise skip or mumble (`%`, `°C`, digits, `z.B.`, …) — checkpoints are trained on normalised
+  text, so raw numbers and symbols are out-of-distribution. What to spell out is language-specific, so
+  it is opt-in; for German the library ships a ready default:
+
+  ```csharp
+  options.TextNormalizer = GermanTextNormalizer.Normalize;
+  // "z.B. 50 % von 1.000 €" -> "zum Beispiel fünfzig Prozent von eintausend Euro"
+  ```
+
+  It handles numbers, percent, currency, decimals/thousands (German `,`/`.` convention),
+  abbreviations and a few symbols, rewriting only recognised patterns and leaving prose untouched.
+  Supply any other `Func<string, string>` for a different language.
 
 Everything else — the pipeline, the options, the 24 kHz audio format — is identical across languages.
 

@@ -7,6 +7,15 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `GermanTextNormalizer.Normalize` — a ready default for `F5TtsOptions.TextNormalizer` that spells out
+  what a German checkpoint cannot pronounce: cardinal numbers (`2026` → *zweitausendsechsundzwanzig*),
+  percent (`50 %` → *fünfzig Prozent*), currency (`3,50 €` → *drei Euro fünfzig*), decimals and
+  thousands in German convention (`,` decimal, `.` grouping), common abbreviations (`z.B.` → *zum
+  Beispiel*), and a few symbols (`&` → *und*, `°C` → *Grad Celsius*). Assign it with
+  `options.TextNormalizer = GermanTextNormalizer.Normalize;`. Deterministic and opt-in (the library
+  can't know a checkpoint's language), it rewrites only recognised patterns and leaves prose — and
+  the name "Max." — untouched. Context-/inflection-dependent cases (bare ordinals, dates, clock times)
+  are deliberately left for later: a wrong reading is worse than a skipped symbol.
 - `F5TtsModel.SynthesizeStreamAsync(...)` returning `IAsyncEnumerable<F5TtsChunk>` — stream long text
   chunk by chunk so the **first audio is ready after the first sentence** instead of after the whole
   text. For anything interactive (an assistant speaking a paragraph, a chat UI) the wait that matters
