@@ -27,6 +27,13 @@ public static partial class GermanTextNormalizer
     private static readonly string[] Tens =
         ["", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig", "achtzig", "neunzig"];
 
+    // Month names; index is the month number (1..12).
+    private static readonly string[] Months =
+    [
+        "", "Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September",
+        "Oktober", "November", "Dezember",
+    ];
+
     private static readonly (string Abbr, string Full)[] Abbreviations =
     [
         // Multi-dot forms first so a shorter one never eats part of a longer one.
@@ -51,6 +58,10 @@ public static partial class GermanTextNormalizer
         text = PercentRegex().Replace(text, m => SpellDecimalOrInt(m.Groups[1].Value) + " Prozent");
         text = TemperatureRegex().Replace(text, m => SpellDecimalOrInt(m.Groups[1].Value) + " Grad Celsius");
         text = DegreeRegex().Replace(text, m => SpellDecimalOrInt(m.Groups[1].Value) + " Grad");
+        text = NumericDateRegex().Replace(text, NumericDateEval);   // 3.8.2026
+        text = DayMonthRegex().Replace(text, DayMonthEval);         // 3. August
+        text = OrdinalRegex().Replace(text, OrdinalEval);           // der 3. Platz (article-governed)
+        text = TimeRegex().Replace(text, TimeEval);                 // 14:30
         text = MinusRegex().Replace(text, "${pre}minus ");        // a leading "-" before digits
         text = ThousandsRegex().Replace(text, m => SpellInteger(m.Value.Replace(".", "")));
         text = DecimalRegex().Replace(text, m => SpellDecimal(m.Groups[1].Value, m.Groups[2].Value));
@@ -111,6 +122,76 @@ public static partial class GermanTextNormalizer
 
         return sb.ToString();
     }
+
+    private static string NumericDateEval(Match m)
+    {
+        var day = int.Parse(m.Groups["day"].Value, CultureInfo.InvariantCulture);
+        var month = int.Parse(m.Groups["month"].Value, CultureInfo.InvariantCulture);
+        if (day is < 1 or > 31 || month is < 1 or > 12)
+        {
+            return m.Value;                            // not a plausible date — leave it for the number rules
+        }
+
+        var lead = m.Groups["lead"].Value;
+        var leadPart = lead.Length == 0 ? "" : lead + " ";
+        return $"{leadPart}{Ordinal(day, lead)} {Months[month]} {SpellInteger(m.Groups["year"].Value)}";
+    }
+
+    private static string DayMonthEval(Match m)
+    {
+        var day = int.Parse(m.Groups["day"].Value, CultureInfo.InvariantCulture);
+        if (day is < 1 or > 31)
+        {
+            return m.Value;
+        }
+
+        var lead = m.Groups["lead"].Value;
+        var leadPart = lead.Length == 0 ? "" : lead + " ";
+        return $"{leadPart}{Ordinal(day, lead)} {m.Groups["month"].Value}";
+    }
+
+    private static string OrdinalEval(Match m)
+    {
+        var lead = m.Groups["lead"].Value;
+        var n = int.Parse(m.Groups["num"].Value, CultureInfo.InvariantCulture);
+        return $"{lead} {Ordinal(n, lead)}";
+    }
+
+    private static string TimeEval(Match m)
+    {
+        var hour = int.Parse(m.Groups["h"].Value, CultureInfo.InvariantCulture);
+        var minute = int.Parse(m.Groups["m"].Value, CultureInfo.InvariantCulture);
+        if (hour > 23 || minute > 59)
+        {
+            return m.Value;                            // more likely a score/ratio than a clock time
+        }
+
+        return minute == 0
+            ? $"{SpellCardinal(hour)} Uhr"
+            : $"{SpellCardinal(hour)} Uhr {SpellCardinal(minute)}";
+    }
+
+    /// <summary>The German ordinal for <paramref name="n"/>, inflected for the article/preposition it
+    /// follows (<c>am</c> → -ten, <c>der</c> → -te, none → -ter). Grammar is only a heuristic on the
+    /// leading word — enough for dates and article-governed ordinals, which is all this is applied to.</summary>
+    private static string Ordinal(int n, string lead) => OrdinalStem(n) + OrdinalEnding(lead);
+
+    private static string OrdinalStem(int n) => n switch
+    {
+        1 => "erst",
+        3 => "dritt",
+        7 => "siebt",
+        8 => "acht",
+        < 20 => SpellCardinal(n) + "t",
+        _ => SpellCardinal(n) + "st",
+    };
+
+    private static string OrdinalEnding(string lead) => lead.ToLowerInvariant() switch
+    {
+        "der" or "die" or "das" or "eine" => "e",
+        "den" or "dem" or "am" or "im" or "vom" or "zum" or "beim" => "en",
+        _ => "er",                                     // "ein" and no article both take the strong -er
+    };
 
     /// <summary>Spells a non-negative integer given as a digit string (up to the billions). Out of
     /// range or unparsable input is returned as-is rather than guessed.</summary>
@@ -221,6 +302,18 @@ public static partial class GermanTextNormalizer
 
     [GeneratedRegex(@"(-?\d+(?:,\d+)?)\s*°(?!\s?C)")]
     private static partial Regex DegreeRegex();
+
+    [GeneratedRegex(@"\b(?:(?<lead>der|die|das|den|dem|am|im|vom|zum|beim|ein|eine)\s+)?(?<day>\d{1,2})\.(?<month>\d{1,2})\.(?<year>\d{2,4})\b")]
+    private static partial Regex NumericDateRegex();
+
+    [GeneratedRegex(@"\b(?:(?<lead>der|die|das|den|dem|am|im|vom|zum|beim|ein|eine)\s+)?(?<day>\d{1,2})\.\s+(?<month>Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b")]
+    private static partial Regex DayMonthRegex();
+
+    [GeneratedRegex(@"\b(?<lead>der|die|das|den|dem|am|im|vom|zum|beim|ein|eine)\s+(?<num>\d{1,3})\.(?=\s+\p{L})")]
+    private static partial Regex OrdinalRegex();
+
+    [GeneratedRegex(@"\b(?<h>\d{1,2}):(?<m>\d{2})\b(?:\s*Uhr)?")]
+    private static partial Regex TimeRegex();
 
     [GeneratedRegex(@"(?<pre>^|\s|\()-(?=\d)")]
     private static partial Regex MinusRegex();

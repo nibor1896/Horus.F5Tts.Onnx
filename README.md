@@ -212,12 +212,14 @@ The only language-specific pieces are:
 
   ```csharp
   options.TextNormalizer = GermanTextNormalizer.Normalize;
-  // "z.B. 50 % von 1.000 €" -> "zum Beispiel fünfzig Prozent von eintausend Euro"
+  // "z.B. 50 % von 1.000 €"  -> "zum Beispiel fünfzig Prozent von eintausend Euro"
+  // "am 3.8.2026 um 14:30 Uhr" -> "am dritten August zweitausendsechsundzwanzig um vierzehn Uhr dreißig"
   ```
 
-  It handles numbers, percent, currency, decimals/thousands (German `,`/`.` convention),
-  abbreviations and a few symbols, rewriting only recognised patterns and leaving prose untouched.
-  Supply any other `Func<string, string>` for a different language.
+  It handles numbers, percent, currency, decimals/thousands (German `,`/`.` convention), dates, clock
+  times, article-governed ordinals (inflected from the leading word), abbreviations and a few symbols,
+  rewriting only recognised patterns and leaving prose untouched. Supply any other
+  `Func<string, string>` for a different language.
 
 Everything else — the pipeline, the options, the 24 kHz audio format — is identical across languages.
 

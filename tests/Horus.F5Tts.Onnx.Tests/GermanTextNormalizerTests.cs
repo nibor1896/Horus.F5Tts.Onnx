@@ -75,6 +75,33 @@ public class GermanTextNormalizerTests
     }
 
     [Theory]
+    // numeric dates
+    [InlineData("3.8.2026", "dritter August zweitausendsechsundzwanzig")]
+    [InlineData("am 3.8.2026", "am dritten August zweitausendsechsundzwanzig")]
+    // day + month name
+    [InlineData("3. August", "dritter August")]
+    [InlineData("am 3. August", "am dritten August")]
+    [InlineData("der 3. August", "der dritte August")]
+    [InlineData("21. Dezember", "einundzwanzigster Dezember")]
+    [InlineData("1. Januar 2026", "erster Januar zweitausendsechsundzwanzig")]
+    // article-governed ordinals (non-date)
+    [InlineData("der 3. Platz", "der dritte Platz")]
+    [InlineData("am 5. Tag", "am fünften Tag")]
+    [InlineData("die 2. Runde", "die zweite Runde")]
+    [InlineData("beim 8. Versuch", "beim achten Versuch")]
+    // times
+    [InlineData("14:30", "vierzehn Uhr dreißig")]
+    [InlineData("14:00", "vierzehn Uhr")]
+    [InlineData("9:05", "neun Uhr fünf")]
+    [InlineData("um 14:30 Uhr", "um vierzehn Uhr dreißig")]     // no doubled "Uhr"
+    // deferred / must NOT be guessed as an ordinal: sentence-final number after a non-article word
+    [InlineData("Ich zählte bis 5. Dann kam Ruhe.", "Ich zählte bis fünf. Dann kam Ruhe.")]
+    public void Normalize_handles_dates_times_and_ordinals(string input, string expected)
+    {
+        Assert.Equal(expected, GermanTextNormalizer.Normalize(input));
+    }
+
+    [Theory]
     [InlineData("Ich gehe heute nach Hause und koche Abendessen.")]
     [InlineData("Der Himmel ist blau, das Gras ist grün.")]
     [InlineData("Hallo, wie geht es dir?")]
