@@ -1,4 +1,5 @@
-> 🚧 **On `main`, not yet on NuGet:** progress reporting via `IProgress<T>`.
+> 🚧 **On `main`, not yet on NuGet:** streaming synthesis (`SynthesizeStreamAsync`), German & English
+> text normalizers (`GermanTextNormalizer` / `EnglishTextNormalizer`), and progress reporting via `IProgress<T>`.
 > The published package is **0.2.0** — see the [CHANGELOG](https://github.com/nibor1896/Horus.F5Tts.Onnx/blob/main/CHANGELOG.md#unreleased) for what has landed since.
 
 # Horus.F5Tts.Onnx
