@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `F5TtsModel.PrepareVoice(...)` / `PrepareVoiceFromWav(...)` returning a `PreparedVoice` — bind a
+  reference clip and its transcript once, then synthesize with just the text
+  (`voice.SynthesizeAsync(text)`, `SynthesizeLongAsync`, `SynthesizeStreamAsync`). Handy when one
+  voice speaks many things (an assistant, a chat UI); `PrepareVoiceFromWav` also loads/resamples the
+  .wav for you. It is an ergonomic convenience only — **not** a speed optimisation: F5 fuses the
+  reference processing into the same graph pass as the generated text (it cannot be cached across
+  texts), and that step is ~0.3 % of a synthesis anyway. Each call runs the full pipeline, byte-for-byte
+  identical to calling the model directly.
 - `EnglishTextNormalizer.Normalize` — the English counterpart, same shape as the German one but in
   English convention (`.` decimal, `,` thousands): cardinal numbers, percent, currency (`$3.50` →
   *three dollars and fifty cents*, also `£`/`€`), decimals and thousands, explicit ordinals (`21st` →

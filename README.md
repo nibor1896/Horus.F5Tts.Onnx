@@ -88,6 +88,19 @@ Cancellation is honoured **between denoising steps**, so a long request can be a
 instead of only before it starts (a step is the granularity — a call already inside ONNX Runtime
 can't be interrupted).
 
+When one voice speaks many things, bind the reference once with `PrepareVoice` and then pass only the
+text:
+
+```csharp
+var voice = model.PrepareVoiceFromWav("reference.wav", referenceText);   // or PrepareVoice(short[], text)
+var a = await voice.SynthesizeAsync("First line.");
+var b = await voice.SynthesizeLongAsync(wholeParagraph);
+```
+
+It is a convenience, not a speed-up — each call runs the full pipeline, identical to passing the
+reference every time (F5 can't cache the reference across different texts, and that step is a
+fraction of a percent of the work anyway).
+
 Synthesis is slow and silent, so for a progress bar set `F5TtsOptions.Progress`:
 
 ```csharp

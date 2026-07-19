@@ -59,6 +59,29 @@ public sealed class F5TtsModel : IDisposable
     /// <summary>The audio sample rate of the synthesized output (24 kHz).</summary>
     public int OutputSampleRate => SampleRate;
 
+    /// <summary>Binds a reference clip and its transcript into a <see cref="PreparedVoice"/>, so you
+    /// can then synthesize with just the text (see <see cref="PreparedVoice"/> for what this does and
+    /// does not save).</summary>
+    /// <param name="referenceAudio">The reference voice, as 24 kHz mono 16-bit PCM.</param>
+    /// <param name="referenceText">The transcript of <paramref name="referenceAudio"/>.</param>
+    public PreparedVoice PrepareVoice(short[] referenceAudio, string referenceText)
+    {
+        ArgumentNullException.ThrowIfNull(referenceAudio);
+        ArgumentNullException.ThrowIfNull(referenceText);
+        return new PreparedVoice(this, referenceAudio, referenceText);
+    }
+
+    /// <summary>Loads a reference clip from a .wav (any rate, mono or stereo — resampled and
+    /// down-mixed to 24 kHz for you) and binds it with its transcript into a <see cref="PreparedVoice"/>.</summary>
+    /// <param name="wavPath">Path to the reference .wav.</param>
+    /// <param name="referenceText">The transcript of the clip.</param>
+    public PreparedVoice PrepareVoiceFromWav(string wavPath, string referenceText)
+    {
+        ArgumentNullException.ThrowIfNull(wavPath);
+        ArgumentNullException.ThrowIfNull(referenceText);
+        return new PreparedVoice(this, WavAudio.ReadPcm16Resampled(wavPath, SampleRate), referenceText);
+    }
+
     /// <summary>Loads the three ONNX models and the vocabulary. Optionally configure the ONNX Runtime
     /// session (e.g. append a GPU execution provider). When <paramref name="configureSession"/> is
     /// null, the default CPU provider is used.</summary>
