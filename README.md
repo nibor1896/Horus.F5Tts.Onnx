@@ -152,6 +152,27 @@ exactly.
 
 `TextChunker` is public if you would rather split the text yourself.
 
+## Streaming (speak sooner)
+
+For long text, `SynthesizeLongAsync` returns nothing until every sentence is done — so the user waits
+for the whole paragraph before hearing a word. `SynthesizeStreamAsync` yields each piece as it is
+ready, so the **first audio arrives after the first sentence**:
+
+```csharp
+await foreach (var chunk in model.SynthesizeStreamAsync(referenceAudio, referenceText, wholeParagraph))
+{
+    // chunk.Samples is ready-to-play 24 kHz PCM — append it to your audio sink now.
+    player.Write(chunk.Samples);          // e.g. sentence chunk.Index + 1 of chunk.Count
+}
+```
+
+Concatenating every `chunk.Samples` in order gives **exactly** the same audio as
+`SynthesizeLongAsync` for the same inputs and seed — the stream is the batch result delivered
+incrementally, not a different rendering. It is chunk-granularity streaming (F5-TTS generates each
+sentence's audio as a whole), so the gain is the first chunk arriving early; short single-chunk text
+yields one item, the same as `SynthesizeAsync`. `CancellationToken` stops it promptly, between or
+within chunks.
+
 ## Languages & voices
 
 Two independent things decide how the output sounds:

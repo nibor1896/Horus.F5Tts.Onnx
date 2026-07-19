@@ -9,11 +9,13 @@ using Horus.F5Tts.Onnx;
 // accent come from that checkpoint; the speaking voice comes from <reference.wav>.
 //
 // Usage:
-//   Horus.F5Tts.Onnx.Sample <modelDir> <reference.wav> "<reference text>" "<text to speak>" <out.wav> [seed]
+//   Horus.F5Tts.Onnx.Sample <modelDir> <reference.wav> "<reference text>" "<text to speak>" <out.wav> [seed] [stream]
 //
 // Pass a [seed] to make the output reproducible: the same reference, text and seed always produce
 // identical audio. The sample then prints a fingerprint of the samples, which turns "did my change
-// alter the output?" into a yes/no comparison instead of a listening test.
+// alter the output?" into a yes/no comparison instead of a listening test. Add "stream" to synthesize
+// chunk-by-chunk (SynthesizeStreamAsync) — the audio, and so the fingerprint, is identical to the
+// non-streaming run; only the first-audio latency differs.
 //
 // Examples:
 //   # German checkpoint (huggingface.co/nibor1896/F5-TTS-German-ONNX)
@@ -27,7 +29,7 @@ using Horus.F5Tts.Onnx;
 if (args.Length < 5)
 {
     Console.Error.WriteLine(
-        "Usage: <modelDir> <reference.wav> \"<reference text>\" \"<text to speak>\" <out.wav> [seed]");
+        "Usage: <modelDir> <reference.wav> \"<reference text>\" \"<text to speak>\" <out.wav> [seed] [stream]");
     return 1;
 }
 
@@ -52,36 +54,72 @@ Console.WriteLine($"  loaded in {swLoad.ElapsedMilliseconds} ms");
 // Any sample rate works: the clip is converted to whatever the model expects (24 kHz).
 var referenceAudio = WavAudio.ReadPcm16Resampled(args[1], model.OutputSampleRate);
 
+// Trailing args (any order): an integer [seed] pins the output; the word "stream" synthesizes via
+// SynthesizeStreamAsync (chunk-by-chunk) instead of SynthesizeLong. Streaming is the same audio,
+// delivered incrementally — with a seed, the two produce an identical fingerprint.
 var options = new F5TtsOptions();
-if (args.Length > 5)
+var streamMode = false;
+for (var i = 5; i < args.Length; i++)
 {
-    if (!int.TryParse(args[5], out var seed))
+    if (string.Equals(args[i], "stream", StringComparison.OrdinalIgnoreCase))
     {
-        Console.Error.WriteLine($"Seed must be an integer, got '{args[5]}'.");
+        streamMode = true;
+    }
+    else if (int.TryParse(args[i], out var seed))
+    {
+        options.Seed = seed;
+    }
+    else
+    {
+        Console.Error.WriteLine($"Unrecognized argument '{args[i]}' (expected a seed or 'stream').");
         return 1;
     }
-
-    options.Seed = seed;
 }
 
-Console.WriteLine($"Synthesizing: \"{args[3]}\"");
+Console.WriteLine($"Synthesizing: \"{args[3]}\"{(streamMode ? "  [streaming]" : "")}");
 Console.WriteLine("  (CPU/GPU-bound and silent until done — on CPU a large model takes tens of seconds)");
 
 // SynthesizeLong rather than Synthesize: text that fits in one pass is handed straight to Synthesize,
 // so nothing changes for a short sentence — but a paragraph gets chunked and cross-faded instead of
 // coming out degraded. There is no reason for a sample to demonstrate the fragile call.
 var sw = Stopwatch.StartNew();
-var result = model.SynthesizeLong(referenceAudio, referenceText: args[2], text: args[3], options);
+short[] samples;
+if (streamMode)
+{
+    // Stream the pieces and concatenate them. The audio is identical to SynthesizeLong (the
+    // fingerprint below proves it) — the point of streaming is that the first chunk is ready early,
+    // so we report when it arrives.
+    var pieces = new List<short>();
+    var first = true;
+    await foreach (var chunk in model.SynthesizeStreamAsync(referenceAudio, referenceText: args[2], text: args[3], options))
+    {
+        if (first)
+        {
+            Console.WriteLine($"  first audio after {sw.ElapsedMilliseconds} ms (of {chunk.Count} chunk(s))");
+            first = false;
+        }
+
+        pieces.AddRange(chunk.Samples);
+    }
+
+    samples = pieces.ToArray();
+}
+else
+{
+    samples = model.SynthesizeLong(referenceAudio, referenceText: args[2], text: args[3], options).Samples;
+}
+
 sw.Stop();
 
-File.WriteAllBytes(args[4], result.ToWav());
+File.WriteAllBytes(args[4], WavAudio.WritePcm16(samples, model.OutputSampleRate));
+var durationSeconds = (double)samples.Length / model.OutputSampleRate;
 Console.WriteLine(
-    $"Wrote {args[4]} — {result.DurationSeconds:F1}s of audio, synthesized in {sw.ElapsedMilliseconds} ms.");
+    $"Wrote {args[4]} — {durationSeconds:F1}s of audio, synthesized in {sw.ElapsedMilliseconds} ms.");
 
 // A fingerprint of the raw samples. With a seed this is stable across runs, machines and execution
 // providers, so re-running after a code change answers "is the audio still bit-for-bit the same?"
-// without anyone having to trust their ears.
-var fingerprint = Convert.ToHexString(SHA256.HashData(MemoryMarshal.AsBytes<short>(result.Samples)))[..16];
+// without anyone having to trust their ears — and a streamed run must match the non-streamed one.
+var fingerprint = Convert.ToHexString(SHA256.HashData(MemoryMarshal.AsBytes<short>(samples)))[..16];
 Console.WriteLine(options.Seed is null
     ? $"Audio fingerprint: {fingerprint} (no seed — expected to differ between runs; pass a seed to pin it)"
     : $"Audio fingerprint: {fingerprint} (seed {options.Seed} — must stay identical across runs)");

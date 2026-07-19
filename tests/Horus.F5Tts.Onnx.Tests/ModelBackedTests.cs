@@ -195,4 +195,77 @@ public class ModelBackedTests : IClassFixture<ModelFixture>
 
         Assert.Equal(sync.Samples, async.Samples);
     }
+
+    // A paragraph well past the ~567-byte budget of the 1 s reference (it is ~1.3 kB), so the chunker
+    // splits it into several pieces and the streaming cross-fade is actually exercised.
+    private const string Paragraph =
+        "The first sentence sets the scene for what follows. The second one carries the thought " +
+        "forward with a little more detail than strictly necessary. A third keeps the paragraph " +
+        "going, because a single pass could never hold all of this at once. The fourth is here to " +
+        "make sure we cross at least one chunk boundary along the way. The fifth exists for good " +
+        "measure, and the sixth keeps the momentum from flagging in the middle. A seventh sentence " +
+        "adds yet more length so the budget is comfortably exceeded. The eighth talks about nothing " +
+        "in particular, which suits it fine. A ninth is happy simply to be counted among the rest. " +
+        "The tenth begins to wind things down, but not quite yet. An eleventh lingers a moment " +
+        "longer than it strictly needs to. And the twelfth finally rounds the whole thing off so " +
+        "that nothing at all is left dangling at the end.";
+
+    [ModelFact]
+    public async Task SynthesizeStreamAsync_concatenated_equals_SynthesizeLongAsync()
+    {
+        // The headline guarantee: the stream is the batch result, delivered incrementally — same
+        // per-chunk seeds, same cross-fade, so the same samples. (The bit-identity of the cross-fade
+        // itself is proved without models in StreamCrossFadeTests.)
+        var streamed = new List<short>();
+        var expectedIndex = 0;
+        var count = 0;
+        await foreach (var chunk in _fixture.Model.SynthesizeStreamAsync(Reference(), RefText, Paragraph, Fast(123)))
+        {
+            Assert.Equal(expectedIndex++, chunk.Index);
+            count = chunk.Count;
+            streamed.AddRange(chunk.Samples);
+        }
+
+        Assert.True(count > 1, "the paragraph should need more than one chunk to exercise streaming");
+
+        var batch = await _fixture.Model.SynthesizeLongAsync(Reference(), RefText, Paragraph, Fast(123));
+
+        Assert.Equal(batch.Samples, streamed.ToArray());
+    }
+
+    [ModelFact]
+    public async Task SynthesizeStreamAsync_yields_one_chunk_for_short_text_equal_to_SynthesizeAsync()
+    {
+        var streamed = new List<F5TtsChunk>();
+        await foreach (var chunk in _fixture.Model.SynthesizeStreamAsync(Reference(), RefText, GenText, Fast(5)))
+        {
+            streamed.Add(chunk);
+        }
+
+        var one = Assert.Single(streamed);
+        Assert.Equal(0, one.Index);
+        Assert.Equal(1, one.Count);
+
+        var single = await _fixture.Model.SynthesizeAsync(Reference(), RefText, GenText, Fast(5));
+        Assert.Equal(single.Samples, one.Samples);
+    }
+
+    [ModelFact]
+    public async Task SynthesizeStreamAsync_stops_promptly_when_cancelled_mid_stream()
+    {
+        using var cts = new CancellationTokenSource();
+        var received = 0;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await foreach (var chunk in _fixture.Model.SynthesizeStreamAsync(
+                Reference(), RefText, Paragraph, Fast(1), cancellationToken: cts.Token))
+            {
+                received++;
+                cts.Cancel();   // abandon the request once the first chunk is in hand
+            }
+        });
+
+        Assert.True(received >= 1, "the first chunk should arrive before cancellation takes effect");
+    }
 }

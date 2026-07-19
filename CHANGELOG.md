@@ -7,6 +7,21 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `F5TtsModel.SynthesizeStreamAsync(...)` returning `IAsyncEnumerable<F5TtsChunk>` — stream long text
+  chunk by chunk so the **first audio is ready after the first sentence** instead of after the whole
+  text. For anything interactive (an assistant speaking a paragraph, a chat UI) the wait that matters
+  is time-to-first-audio, and this drops it from "synthesize everything" to "synthesize the first
+  chunk". A caller writes one WAV header (or opens one PCM sink) and appends each `F5TtsChunk.Samples`
+  as it arrives.
+
+  It is the same result as `SynthesizeLongAsync`, only delivered incrementally, not a second
+  rendering: the chunks are the same sentence-level pieces, cross-faded the same way, so
+  **concatenating every chunk's samples in order is byte-for-byte identical to `SynthesizeLongAsync`**
+  for the same inputs and seed (proved by test, both as pure cross-fade math and end-to-end). This is
+  chunk-granularity streaming, not frame-level — F5-TTS generates each chunk's audio as a whole, so
+  the win is the *first* chunk arriving early, and it scales with text length. Short text that is a
+  single chunk yields exactly one item, identical to `SynthesizeAsync`. Cancellation is honoured
+  between and within chunks.
 - `F5TtsOptions.Progress` (`IProgress<F5TtsProgress>`) — synthesis is slow and silent (tens of seconds
   for one sentence on CPU), so anything with a user interface had nothing to show but a spinner. A
   report now arrives after every denoising step, and `F5TtsProgress.Fraction` spans the **whole

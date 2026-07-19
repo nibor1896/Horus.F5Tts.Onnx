@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -235,6 +236,56 @@ public sealed class F5TtsModel : IDisposable
         }
 
         return new F5TtsResult(CrossFade(segments, SampleRate, crossFadeSeconds), SampleRate);
+    }
+
+    /// <summary>Synthesizes long text and <b>streams</b> the audio chunk by chunk, so the first sound
+    /// is ready after the first sentence instead of after the whole text. For anything interactive —
+    /// an assistant speaking a paragraph, a chat UI — the wait that matters is time-to-first-audio,
+    /// and that drops from "synthesize everything" to "synthesize the first chunk".
+    ///
+    /// The chunks are the same sentence-level pieces <see cref="SynthesizeLong"/> makes, cross-faded
+    /// the same way, so <b>concatenating every yielded <see cref="F5TtsChunk.Samples"/> in order gives
+    /// exactly the same audio as <see cref="SynthesizeLongAsync"/></b> for the same inputs and seed. A
+    /// typical consumer writes one WAV header (or opens one PCM audio sink) and appends each chunk as
+    /// it arrives.</summary>
+    /// <remarks>This is <b>chunk</b>-granularity streaming, not frame-level: F5-TTS generates each
+    /// chunk's audio as a whole (a flow-matching model, not autoregressive), so sound cannot stream
+    /// from <i>within</i> a chunk — the first chunk simply becomes available while the rest are still
+    /// being generated. Short text that is a single chunk yields exactly one item, identical to
+    /// <see cref="SynthesizeAsync"/>. Cancellation is honoured between and within chunks, as in
+    /// <see cref="SynthesizeAsync"/>; any tail held back for the next cross-fade is simply dropped.</remarks>
+    /// <param name="referenceAudio">The reference voice, as 24 kHz mono 16-bit PCM.</param>
+    /// <param name="referenceText">The transcript of <paramref name="referenceAudio"/>.</param>
+    /// <param name="text">The text to speak; may span many sentences.</param>
+    /// <param name="options">Optional synthesis options, applied to every chunk (see
+    /// <see cref="SynthesizeLong"/> for how a <see cref="F5TtsOptions.Seed"/> stays reproducible).</param>
+    /// <param name="crossFadeSeconds">Overlap blended between consecutive chunks. Zero butt-joins them,
+    /// which tends to click.</param>
+    /// <param name="cancellationToken">Cancels the synthesis; stops the enumeration promptly.</param>
+    public async IAsyncEnumerable<F5TtsChunk> SynthesizeStreamAsync(
+        short[] referenceAudio, string referenceText, string text,
+        F5TtsOptions? options = null, double crossFadeSeconds = DefaultCrossFadeSeconds,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(referenceAudio);
+        ArgumentNullException.ThrowIfNull(referenceText);
+        ArgumentNullException.ThrowIfNull(text);
+        options ??= new F5TtsOptions();
+
+        var chunks = ChunkFor(referenceAudio, referenceText, text, options);
+        var fadeSamples = crossFadeSeconds <= 0 ? 0 : (int)(crossFadeSeconds * SampleRate);
+        var fader = new IncrementalCrossFade(fadeSamples);
+
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            var result = await SynthesizeAsync(
+                referenceAudio, referenceText, chunks[i], OptionsForChunk(options, i, chunks.Count),
+                cancellationToken)
+                .ConfigureAwait(false);
+
+            var samples = fader.Next(result.Samples, isLast: i == chunks.Count - 1);
+            yield return new F5TtsChunk(samples, SampleRate, i, chunks.Count, chunks[i]);
+        }
     }
 
     private IReadOnlyList<string> ChunkFor(short[] referenceAudio, string referenceText, string text,
