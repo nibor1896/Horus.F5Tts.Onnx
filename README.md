@@ -1,8 +1,3 @@
-> 🚧 **On `main`, not yet on NuGet:** streaming synthesis (`SynthesizeStreamAsync`), German & English
-> text normalizers (`GermanTextNormalizer` / `EnglishTextNormalizer`), `PreparedVoice`, and progress
-> reporting via `IProgress<T>`.
-> The published package is **0.2.0** — see the [CHANGELOG](https://github.com/nibor1896/Horus.F5Tts.Onnx/blob/main/CHANGELOG.md#unreleased) for what has landed since.
-
 # Horus.F5Tts.Onnx
 
 > ### The first pure-.NET runner for [F5-TTS](https://github.com/SWivid/F5-TTS).

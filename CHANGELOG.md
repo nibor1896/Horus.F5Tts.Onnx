@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-19
+
 ### Added
 - `F5TtsModel.PrepareVoice(...)` / `PrepareVoiceFromWav(...)` returning a `PreparedVoice` — bind a
   reference clip and its transcript once, then synthesize with just the text
