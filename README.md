@@ -208,12 +208,17 @@ The only language-specific pieces are:
 - **The text normalizer** (optional). `F5TtsOptions.TextNormalizer` spells out what the model would
   otherwise skip or mumble (`%`, `°C`, digits, `z.B.`, …) — checkpoints are trained on normalised
   text, so raw numbers and symbols are out-of-distribution. What to spell out is language-specific, so
-  it is opt-in; for German the library ships a ready default:
+  it is opt-in; the library ships ready defaults for German (`GermanTextNormalizer`) and English
+  (`EnglishTextNormalizer`):
 
   ```csharp
   options.TextNormalizer = GermanTextNormalizer.Normalize;
   // "z.B. 50 % von 1.000 €"  -> "zum Beispiel fünfzig Prozent von eintausend Euro"
   // "am 3.8.2026 um 14:30 Uhr" -> "am dritten August zweitausendsechsundzwanzig um vierzehn Uhr dreißig"
+
+  options.TextNormalizer = EnglishTextNormalizer.Normalize;
+  // "I saved $1,000 (50%) by the 3rd, at 2:30 pm"
+  //   -> "I saved one thousand dollars (fifty percent) by the third, at two thirty PM"
   ```
 
   It handles numbers, percent, currency, decimals/thousands (German `,`/`.` convention), dates, clock

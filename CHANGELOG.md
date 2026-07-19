@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format is based on
 ## [Unreleased]
 
 ### Added
+- `EnglishTextNormalizer.Normalize` — the English counterpart, same shape as the German one but in
+  English convention (`.` decimal, `,` thousands): cardinal numbers, percent, currency (`$3.50` →
+  *three dollars and fifty cents*, also `£`/`€`), decimals and thousands, explicit ordinals (`21st` →
+  *twenty-first*), clock times (`2:30 pm` → *two thirty PM*, `2:00` → *two o'clock*), common
+  abbreviations (`e.g.` → *for example*) and a few symbols. Numeric dates (`3/8/2026`) are left alone —
+  the month/day order is locale-ambiguous.
 - `GermanTextNormalizer.Normalize` — a ready default for `F5TtsOptions.TextNormalizer` that spells out
   what a German checkpoint cannot pronounce: cardinal numbers (`2026` → *zweitausendsechsundzwanzig*),
   percent (`50 %` → *fünfzig Prozent*), currency (`3,50 €` → *drei Euro fünfzig*), decimals and
