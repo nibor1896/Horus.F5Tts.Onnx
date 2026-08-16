@@ -1,5 +1,12 @@
 # Horus.F5Tts.Onnx
 
+[![NuGet](https://img.shields.io/nuget/v/Horus.F5Tts.Onnx?logo=nuget&logoColor=white&label=NuGet)](https://www.nuget.org/packages/Horus.F5Tts.Onnx)
+[![Downloads](https://img.shields.io/nuget/dt/Horus.F5Tts.Onnx?logo=nuget&logoColor=white&label=downloads)](https://www.nuget.org/packages/Horus.F5Tts.Onnx)
+[![CI](https://img.shields.io/github/actions/workflow/status/nibor1896/Horus.F5Tts.Onnx/ci.yml?branch=main&logo=githubactions&logoColor=white&label=CI)](https://github.com/nibor1896/Horus.F5Tts.Onnx/actions/workflows/ci.yml)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![ONNX Runtime](https://img.shields.io/badge/ONNX%20Runtime-1.20.1-005CED?logo=onnx&logoColor=white)](https://onnxruntime.ai/)
+[![License](https://img.shields.io/badge/license-MIT-green?logo=opensourceinitiative&logoColor=white)](https://github.com/nibor1896/Horus.F5Tts.Onnx/blob/main/LICENSE)
+
 [F5-TTS](https://github.com/SWivid/F5-TTS) inference for .NET on [ONNX Runtime](https://onnxruntime.ai/) — no Python, no PyTorch.
 Input: a reference voice clip, its transcript, and the text to speak. Output: 24 kHz mono PCM.
 Runs on CPU or on any GPU the ONNX Runtime build supports (DirectML for any DX12 GPU, CUDA for NVIDIA).
