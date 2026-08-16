@@ -266,8 +266,3 @@ Pipeline, options and the 24 kHz audio format are identical across languages.
 - **Model weights** carry their own license — e.g. the German checkpoint
   ([hvoss-techfak/F5-TTS-German](https://huggingface.co/hvoss-techfak/F5-TTS-German)) is
   **CC-BY-NC-4.0** (non-commercial).
-
-<div align="center">
-<br>
-<a href="https://ko-fi.com/nibor1896"><img src="https://img.shields.io/badge/support%20this%20on-ko--fi-ff5e5b?style=for-the-badge" alt="Ko-fi"></a>
-</div>

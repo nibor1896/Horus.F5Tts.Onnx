@@ -6,7 +6,25 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-07-19
+## [0.3.1] - 2026-08-17
+
+Documentation only — no library code changed, so 0.3.0 and 0.3.1 are functionally identical. The
+package README on nuget.org is embedded per version and cannot be edited after publishing, so this
+release exists to carry the rewritten README onto the package page.
+
+### Changed
+- README rewritten as a technical reference: install commands, model files, code samples, the
+  `F5TtsResult` table, long-text and streaming semantics, language/tokenizer/normalizer rules and
+  every measured number stay; the marketing banner, the linked article and the narrative framing
+  around each section are gone. The async, `PreparedVoice`, progress and result sections are grouped
+  under one `API` heading.
+- README carries status badges: NuGet version and downloads, CI status for `main`, .NET 8.0, ONNX
+  Runtime 1.20.1, MIT. All are served from `img.shields.io`, which is on nuget.org's trusted image
+  domain list, so they render on the package page as well as on GitHub.
+
+### Removed
+- The support link at the end of the README (PayPal, briefly a Ko-fi badge). The repository's
+  Sponsor button in `.github/FUNDING.yml` is unaffected.
 
 ### Added
 - `F5TtsModel.PrepareVoice(...)` / `PrepareVoiceFromWav(...)` returning a `PreparedVoice` — bind a
@@ -228,7 +246,9 @@ Initial release.
   driver actually performs `NFE - 1` steps, starting `time_step` at 0 and feeding back the value the
   transformer returns each iteration. Fixed and verified end-to-end (Whisper large-v3: de, 1.00).
 
-[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/nibor1896/Horus.F5Tts.Onnx/compare/v0.1.2...v0.1.3
